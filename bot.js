@@ -29,14 +29,6 @@ bot.onText(/\/cashuencode/, (msg) => commands.encodeToken(bot, msg));
 bot.onText(/\/request mint/, (msg) => commands.requestMint(bot, msg));
 bot.onText(/\/check invoice/, (msg) => commands.checkInvoice(bot, msg));
 
-bot.on('callback_query', async (callbackQuery) => {
-  const msg = callbackQuery.message;
-  const url = callbackQuery.data.split('_')[1];
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(url)}&size=150x150`;
-  console.log(`[INFO] Generating QR code for URL: ${url}`);
-  bot.sendPhoto(msg.chat.id, qrCodeUrl, { caption: `Mint URL: ${url}` });
-});
-
 bot.on('message', async (msg) => {
   try {
     const chatId = msg.chat.id;
