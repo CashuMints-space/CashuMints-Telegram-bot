@@ -23,6 +23,10 @@ const fetchData = async (url, cacheFilename) => {
   }
 };
 
+const formatMintMessage = (mint) => {
+  return `*Mint Name:* ${mint.post_title}\n*Mint URL:* ${mint.guid}`;
+};
+
 const commands = {
   cashuTopMints: async (bot, msg) => {
     const chatId = msg.chat.id;
@@ -34,12 +38,12 @@ const commands = {
       const topMints = mints.slice(0, 4);
       console.log(`[DEBUG] Top 4 mints: ${JSON.stringify(topMints)}`);
       topMints.forEach(mint => {
-        bot.sendMessage(chatId, messages.topMintsMessage(mint), {
+        bot.sendMessage(chatId, formatMintMessage(mint), {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Show Mint QR', callback_data: `show_qr_${mint.url}` }],
-              [{ text: 'More info', url: `https://cashumints.space/mint/${mint.id}` }]
+              [{ text: 'Show Mint QR', callback_data: `show_qr_${mint.guid}` }],
+              [{ text: 'More info', url: mint.guid }]
             ]
           }
         });
@@ -59,12 +63,12 @@ const commands = {
       const topWallets = wallets.slice(0, 4);
       console.log(`[DEBUG] Top 4 wallets: ${JSON.stringify(topWallets)}`);
       topWallets.forEach(wallet => {
-        bot.sendMessage(chatId, messages.topWalletsMessage(wallet), {
+        bot.sendMessage(chatId, formatMintMessage(wallet), {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Show Wallet QR', callback_data: `show_qr_${wallet.url}` }],
-              [{ text: 'More info', url: `https://cashumints.space/wallet/${wallet.id}` }]
+              [{ text: 'Show Wallet QR', callback_data: `show_qr_${wallet.guid}` }],
+              [{ text: 'More info', url: wallet.guid }]
             ]
           }
         });
