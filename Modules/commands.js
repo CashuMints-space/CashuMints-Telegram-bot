@@ -20,9 +20,13 @@ const fetchData = async (url) => {
 
 const commands = {
   cashuTopMints: async (ctx) => {
+    const username = ctx.message.from.username;
+    console.log(`[INFO] ${username} requested top mints.`);
+    
     const mints = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/');
     if (mints) {
       const topMints = mints.slice(0, 4);
+      console.log(`[DEBUG] Top 4 mints: ${JSON.stringify(topMints)}`);
       topMints.forEach(mint => {
         ctx.replyWithMarkdown(messages.topMintsMessage(mint),
           Markup.inlineKeyboard([
@@ -37,9 +41,13 @@ const commands = {
   },
 
   cashuTopWallets: async (ctx) => {
+    const username = ctx.message.from.username;
+    console.log(`[INFO] ${username} requested top wallets.`);
+    
     const wallets = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/');
     if (wallets) {
       const topWallets = wallets.slice(0, 4);
+      console.log(`[DEBUG] Top 4 wallets: ${JSON.stringify(topWallets)}`);
       topWallets.forEach(wallet => {
         ctx.replyWithMarkdown(messages.topWalletsMessage(wallet),
           Markup.inlineKeyboard([
@@ -54,9 +62,13 @@ const commands = {
   },
 
   requestMint: async (ctx) => {
+    const username = ctx.message.from.username;
+    console.log(`[INFO] ${username} requested minting.`);
+    
     const amount = 200; // Example amount, you can customize this or make it dynamic
     try {
       const { pr, hash } = await wallet.requestMint(amount);
+      console.log(`[DEBUG] Mint request successful: PR=${pr}, Hash=${hash}`);
       ctx.reply(messages.mintRequestMessage(pr, hash));
     } catch (error) {
       console.error('Error requesting mint:', error);
@@ -65,6 +77,9 @@ const commands = {
   },
 
   checkInvoice: async (ctx) => {
+    const username = ctx.message.from.username;
+    console.log(`[INFO] ${username} requested to check invoice.`);
+    
     const hash = ctx.message.text.split(' ')[1]; // Extract the hash from the command
 
     if (!hash) {
@@ -79,6 +94,7 @@ const commands = {
       const encoded = getEncodedToken({
         token: [{ mint: MINT_URL, proofs }]
       });
+      console.log(`[DEBUG] Invoice checked, tokens received: ${encoded}`);
       ctx.reply(messages.tokenMessage(encoded));
     } catch (error) {
       console.error('Error checking invoice or getting tokens:', error);
@@ -87,6 +103,9 @@ const commands = {
   },
 
   decodeToken: async (ctx) => {
+    const username = ctx.message.from.username;
+    console.log(`[INFO] ${username} requested to decode a token.`);
+    
     const token = ctx.message.text.split(' ')[1]; // Extract the token from the command
     if (!token) {
       ctx.reply('Please provide a token to decode.');
@@ -94,6 +113,7 @@ const commands = {
     }
     try {
       const decoded = wallet.decodeToken(token);
+      console.log(`[DEBUG] Token decoded: ${JSON.stringify(decoded, null, 2)}`);
       ctx.reply(`Decoded Token: ${JSON.stringify(decoded, null, 2)}`);
     } catch (error) {
       console.error('Error decoding token:', error);
@@ -102,6 +122,9 @@ const commands = {
   },
 
   encodeToken: async (ctx) => {
+    const username = ctx.message.from.username;
+    console.log(`[INFO] ${username} requested to encode a token.`);
+    
     const tokenData = ctx.message.text.split(' ')[1]; // Extract the token data from the command
     if (!tokenData) {
       ctx.reply('Please provide token data to encode.');
@@ -109,6 +132,7 @@ const commands = {
     }
     try {
       const encoded = getEncodedToken(JSON.parse(tokenData));
+      console.log(`[DEBUG] Token encoded: ${encoded}`);
       ctx.reply(`Encoded Token: ${encoded}`);
     } catch (error) {
       console.error('Error encoding token:', error);
@@ -117,10 +141,14 @@ const commands = {
   },
 
   help: (ctx) => {
+    const username = ctx.message.from.username;
+    console.log(`[INFO] ${username} requested help.`);
     ctx.reply(messages.helpMessage);
   },
 
   start: (ctx) => {
+    const username = ctx.message.from.username;
+    console.log(`[INFO] ${username} started the bot.`);
     ctx.reply(messages.startMessage);
   }
 };
