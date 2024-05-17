@@ -12,6 +12,8 @@
     "@cashu/cashu-ts": "^1.0.0-rc.3",
     "axios": "^1.6.8",
     "dotenv": "^16.4.5",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "qrcode": "^1.5.1",
+    "node-telegram-bot-api": "^0.54.0"
   }
 }
