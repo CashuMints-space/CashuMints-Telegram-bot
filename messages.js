@@ -6,10 +6,10 @@ module.exports = {
   errorMessage: 'Sorry, there was an error processing your request.',
   requestHashMessage: 'Please provide the hash from the mint request.',
   helpMessage: 'Available commands:\n' +
-               '/Cashu_topwallets - Show top wallets\n' +
-               '/Cashu_topmints - Show top mints\n' +
-               '/cashu_decode - Decode a token\n' +
-               '/cashu_encode - Encode a token\n' +
+               '/cashu_topwallets - Show top wallets\n' +
+               '/cashu_topmints - Show top mints\n' +
+               '/cashudecode - Decode a token\n' +
+               '/cashuencode - Encode a token\n' +
                '/help - Show this help message',
   startMessage: 'Welcome to the CashuMints bot! Use /help to see available commands.'
 };
