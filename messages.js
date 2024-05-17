@@ -37,5 +37,8 @@ Welcome to the Cashu Claim Bot! Here’s how to get started:
 
 Happy Satoshi hunting!
   `,
+  topMintsMessage: (mint) => `*Mint:* ${mint.name}\n*URL:* ${mint.url}`,
+  topWalletsMessage: (wallet) => `*Wallet:* ${wallet.name}\n*URL:* ${wallet.url}`,
+  mintRequestMessage: (pr, hash) => `Payment request: ${pr}\nHash: ${hash}`,
+  tokenMessage: (encoded) => `Encoded Token: ${encoded}`
 };
-
