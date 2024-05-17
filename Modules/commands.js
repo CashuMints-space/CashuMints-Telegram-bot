@@ -24,7 +24,7 @@ const fetchData = async (url, cacheFilename) => {
 };
 
 const formatMintMessage = (mint) => {
-  return `*Mint Name:* ${mint.post_title}\n*Mint URL:* ${mint.guid}`;
+  return `*Mint Name:* ${mint.post_title}\n*Mint URL:* ${mint.guid}\n*Likes:* ${mint.likes || 0}`;
 };
 
 const commands = {
@@ -42,7 +42,6 @@ const commands = {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Show Mint QR', callback_data: `show_qr_${mint.guid}` }],
               [{ text: 'More info', url: mint.guid }]
             ]
           }
@@ -67,7 +66,6 @@ const commands = {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Show Wallet QR', callback_data: `show_qr_${wallet.guid}` }],
               [{ text: 'More info', url: wallet.guid }]
             ]
           }
