@@ -1,21 +1,52 @@
 const axios = require('axios');
 const { CashuMint, CashuWallet, getEncodedToken } = require('@cashu/cashu-ts');
 const { Markup } = require('telegraf');
+const fs = require('fs');
+const path = require('path');
 const messages = require('../messages');
 require('dotenv').config();
 
 const MINT_URL = process.env.MINT_URL;
 const wallet = new CashuWallet(new CashuMint(MINT_URL));
 
-// Helper function to fetch data from an API endpoint
-const fetchData = async (url) => {
-  try {
-    const response = await axios.get(url);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching data from ${url}:`, error);
+// Directory to store cached data
+const dataDir = './data';
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir);
+}
+
+// Function to cache data
+const cacheData = (filename, data) => {
+    const filePath = path.join(dataDir, filename);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// Function to load cached data
+const loadCachedData = (filename) => {
+    const filePath = path.join(dataDir, filename);
+    if (fs.existsSync(filePath)) {
+        return JSON.parse(fs.readFileSync(filePath));
+    }
     return null;
-  }
+}
+
+// Function to fetch data from an API endpoint and cache it
+const fetchData = async (url, cacheFilename) => {
+    try {
+        const response = await axios.get(url);
+        const data = response.data;
+        cacheData(cacheFilename, data);
+        return data;
+    } catch (error) {
+        console.error(`Error fetching data from ${url}:`, error);
+        // Return cached data if available
+        const cachedData = loadCachedData(cacheFilename);
+        if (cachedData) {
+            console.log(`Using cached data for ${cacheFilename}`);
+            return cachedData;
+        }
+        return null;
+    }
 };
 
 const commands = {
@@ -23,7 +54,7 @@ const commands = {
     const username = ctx.message.from.username;
     console.log(`[INFO] ${username} requested top mints.`);
     
-    const mints = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/');
+    const mints = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/', 'mints.json');
     if (mints) {
       const topMints = mints.slice(0, 4);
       console.log(`[DEBUG] Top 4 mints: ${JSON.stringify(topMints)}`);
@@ -44,7 +75,7 @@ const commands = {
     const username = ctx.message.from.username;
     console.log(`[INFO] ${username} requested top wallets.`);
     
-    const wallets = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/');
+    const wallets = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/', 'wallets.json');
     if (wallets) {
       const topWallets = wallets.slice(0, 4);
       console.log(`[DEBUG] Top 4 wallets: ${JSON.stringify(topWallets)}`);
