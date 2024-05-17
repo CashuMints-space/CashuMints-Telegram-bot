@@ -20,11 +20,11 @@ const fetchData = async (url) => {
 
 const commands = {
   cashuTopMints: async (ctx) => {
-    const mints = await fetchData('https://cashumints.space/cashu-mint/rss');
+    const mints = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/');
     if (mints) {
       const topMints = mints.slice(0, 4);
       topMints.forEach(mint => {
-        ctx.replyWithMarkdown(`*Mint:* ${mint.name}\n*URL:* ${mint.url}`, 
+        ctx.replyWithMarkdown(messages.topMintsMessage(mint),
           Markup.inlineKeyboard([
             Markup.button.callback('Show Mint QR', `show_qr_${mint.url}`),
             Markup.button.url('More info', `https://cashumints.space/mint/${mint.id}`)
@@ -41,7 +41,7 @@ const commands = {
     if (wallets) {
       const topWallets = wallets.slice(0, 4);
       topWallets.forEach(wallet => {
-        ctx.replyWithMarkdown(`*Wallet:* ${wallet.name}\n*URL:* ${wallet.url}`, 
+        ctx.replyWithMarkdown(messages.topWalletsMessage(wallet),
           Markup.inlineKeyboard([
             Markup.button.callback('Show Wallet QR', `show_qr_${wallet.url}`),
             Markup.button.url('More info', `https://cashumints.space/wallet/${wallet.id}`)
