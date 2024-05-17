@@ -6,12 +6,12 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 bot.start(commands.start);
 bot.help(commands.help);
-bot.command('/cashu_topwallets', commands.cashuTopWallets);
-bot.command('/cashu_topmints', commands.cashuTopMints);
+bot.command('/cashu topwallets', commands.cashuTopWallets);
+bot.command('/cashu topmints', commands.cashuTopMints);
 bot.command('/cashudecode', commands.decodeToken);
 bot.command('/cashuencode', commands.encodeToken);
-bot.command('/request_mint', commands.requestMint);
-bot.command('/check_invoice', commands.checkInvoice);
+bot.command('/request mint', commands.requestMint);
+bot.command('/check invoice', commands.checkInvoice);
 
 bot.action(/^show_qr_(.+)$/, async (ctx) => {
   const url = ctx.match[1];
