@@ -1,6 +1,5 @@
 const axios = require('axios');
 const { CashuMint, CashuWallet, getEncodedToken } = require('@cashu/cashu-ts');
-const { Markup } = require('telegraf');
 const messages = require('../messages');
 const { saveData, loadData } = require('./dataCache');
 require('dotenv').config();
@@ -9,24 +8,25 @@ const MINT_URL = process.env.MINT_URL;
 const wallet = new CashuWallet(new CashuMint(MINT_URL));
 
 const fetchData = async (url, cacheFilename) => {
-    const cachedData = loadData(cacheFilename);
-    if (cachedData) {
-        return cachedData;
-    }
+  const cachedData = loadData(cacheFilename);
+  if (cachedData) {
+    return cachedData;
+  }
 
-    try {
-        const response = await axios.get(url);
-        saveData(cacheFilename, response.data);
-        return response.data;
-    } catch (error) {
-        console.error(`Error fetching data from ${url}:`, error);
-        return null;
-    }
+  try {
+    const response = await axios.get(url);
+    saveData(cacheFilename, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching data from ${url}:`, error);
+    return null;
+  }
 };
 
 const commands = {
-  cashuTopMints: async (ctx) => {
-    const username = ctx.message.from.username;
+  cashuTopMints: async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     console.log(`[INFO] ${username} requested top mints.`);
     
     const mints = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/', 'mints.json');
@@ -34,20 +34,24 @@ const commands = {
       const topMints = mints.slice(0, 4);
       console.log(`[DEBUG] Top 4 mints: ${JSON.stringify(topMints)}`);
       topMints.forEach(mint => {
-        ctx.replyWithMarkdown(messages.topMintsMessage(mint),
-          Markup.inlineKeyboard([
-            Markup.button.callback('Show Mint QR', `show_qr_${mint.url}`),
-            Markup.button.url('More info', `https://cashumints.space/mint/${mint.id}`)
-          ])
-        );
+        bot.sendMessage(chatId, messages.topMintsMessage(mint), {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Show Mint QR', callback_data: `show_qr_${mint.url}` }],
+              [{ text: 'More info', url: `https://cashumints.space/mint/${mint.id}` }]
+            ]
+          }
+        });
       });
     } else {
-      ctx.reply(messages.errorMessage);
+      bot.sendMessage(chatId, messages.errorMessage);
     }
   },
 
-  cashuTopWallets: async (ctx) => {
-    const username = ctx.message.from.username;
+  cashuTopWallets: async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     console.log(`[INFO] ${username} requested top wallets.`);
     
     const wallets = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/', 'wallets.json');
@@ -55,41 +59,46 @@ const commands = {
       const topWallets = wallets.slice(0, 4);
       console.log(`[DEBUG] Top 4 wallets: ${JSON.stringify(topWallets)}`);
       topWallets.forEach(wallet => {
-        ctx.replyWithMarkdown(messages.topWalletsMessage(wallet),
-          Markup.inlineKeyboard([
-            Markup.button.callback('Show Wallet QR', `show_qr_${wallet.url}`),
-            Markup.button.url('More info', `https://cashumints.space/wallet/${wallet.id}`)
-          ])
-        );
+        bot.sendMessage(chatId, messages.topWalletsMessage(wallet), {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Show Wallet QR', callback_data: `show_qr_${wallet.url}` }],
+              [{ text: 'More info', url: `https://cashumints.space/wallet/${wallet.id}` }]
+            ]
+          }
+        });
       });
     } else {
-      ctx.reply(messages.errorMessage);
+      bot.sendMessage(chatId, messages.errorMessage);
     }
   },
 
-  requestMint: async (ctx) => {
-    const username = ctx.message.from.username;
+  requestMint: async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     console.log(`[INFO] ${username} requested minting.`);
     
     const amount = 200; // Example amount, you can customize this or make it dynamic
     try {
       const { pr, hash } = await wallet.requestMint(amount);
       console.log(`[DEBUG] Mint request successful: PR=${pr}, Hash=${hash}`);
-      ctx.reply(messages.mintRequestMessage(pr, hash));
+      bot.sendMessage(chatId, messages.mintRequestMessage(pr, hash));
     } catch (error) {
       console.error('Error requesting mint:', error);
-      ctx.reply(messages.errorMessage);
+      bot.sendMessage(chatId, messages.errorMessage);
     }
   },
 
-  checkInvoice: async (ctx) => {
-    const username = ctx.message.from.username;
+  checkInvoice: async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     console.log(`[INFO] ${username} requested to check invoice.`);
     
-    const hash = ctx.message.text.split(' ')[1]; // Extract the hash from the command
+    const hash = msg.text.split(' ')[1]; // Extract the hash from the command
 
     if (!hash) {
-      ctx.reply(messages.requestHashMessage);
+      bot.sendMessage(chatId, messages.requestHashMessage);
       return;
     }
 
@@ -101,61 +110,65 @@ const commands = {
         token: [{ mint: MINT_URL, proofs }]
       });
       console.log(`[DEBUG] Invoice checked, tokens received: ${encoded}`);
-      ctx.reply(messages.tokenMessage(encoded));
+      bot.sendMessage(chatId, messages.tokenMessage(encoded));
     } catch (error) {
       console.error('Error checking invoice or getting tokens:', error);
-      ctx.reply(messages.errorMessage);
+      bot.sendMessage(chatId, messages.errorMessage);
     }
   },
 
-  decodeToken: async (ctx) => {
-    const username = ctx.message.from.username;
+  decodeToken: async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     console.log(`[INFO] ${username} requested to decode a token.`);
     
-    const token = ctx.message.text.split(' ')[1]; // Extract the token from the command
+    const token = msg.text.split(' ')[1]; // Extract the token from the command
     if (!token) {
-      ctx.reply('Please provide a token to decode.');
+      bot.sendMessage(chatId, 'Please provide a token to decode.');
       return;
     }
     try {
       const decoded = wallet.decodeToken(token);
       console.log(`[DEBUG] Token decoded: ${JSON.stringify(decoded, null, 2)}`);
-      ctx.reply(`Decoded Token: ${JSON.stringify(decoded, null, 2)}`);
+      bot.sendMessage(chatId, `Decoded Token: ${JSON.stringify(decoded, null, 2)}`);
     } catch (error) {
       console.error('Error decoding token:', error);
-      ctx.reply(messages.errorMessage);
+      bot.sendMessage(chatId, messages.errorMessage);
     }
   },
 
-  encodeToken: async (ctx) => {
-    const username = ctx.message.from.username;
+  encodeToken: async (bot, msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     console.log(`[INFO] ${username} requested to encode a token.`);
     
-    const tokenData = ctx.message.text.split(' ')[1]; // Extract the token data from the command
+    const tokenData = msg.text.split(' ')[1]; // Extract the token data from the command
     if (!tokenData) {
-      ctx.reply('Please provide token data to encode.');
+      bot.sendMessage(chatId, 'Please provide token data to encode.');
       return;
     }
     try {
       const encoded = getEncodedToken(JSON.parse(tokenData));
       console.log(`[DEBUG] Token encoded: ${encoded}`);
-      ctx.reply(`Encoded Token: ${encoded}`);
+      bot.sendMessage(chatId, `Encoded Token: ${encoded}`);
     } catch (error) {
       console.error('Error encoding token:', error);
-      ctx.reply(messages.errorMessage);
+      bot.sendMessage(chatId, messages.errorMessage);
     }
   },
 
-  help: (ctx) => {
-    const username = ctx.message.from.username;
+  help: (bot, msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     console.log(`[INFO] ${username} requested help.`);
-    ctx.reply(messages.helpMessage);
+    bot.sendMessage(chatId, messages.helpMessage);
   },
 
-  start: (ctx) => {
-    const username = ctx.message.from.username;
+  start: (bot, msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     console.log(`[INFO] ${username} started the bot.`);
-    ctx.reply(messages.startMessage);
+    bot.sendMessage(chatId, messages.startMessage);
   }
 };
 
