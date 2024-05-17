@@ -65,10 +65,10 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         const qrCodePath = await generateQRCode(text);
 
         // Send the QR code message
-        const qrMessage = await bot.sendPhoto(chatId, qrCodePath, { caption: `Token: ${text}` });
+        const qrMessage = await bot.sendPhoto(chatId, qrCodePath);
 
         // Send the status message
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, text, cashuApiUrl), {
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, cashuApiUrl), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
             reply_markup: {
