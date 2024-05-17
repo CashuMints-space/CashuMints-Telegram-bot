@@ -10,8 +10,8 @@ const claimedDisposeTiming = parseInt(process.env.CLAIMED_DISPOSE_TIMING) || 10;
 
 bot.start(commands.start);
 bot.help(commands.help);
-bot.command('/cashu topwallets', commands.cashuTopWallets);
-bot.command('/cashu topmints', commands.cashuTopMints);
+bot.command('/cashumints top', commands.cashuTopMints);
+bot.command('/cashuwallets top', commands.cashuTopWallets);
 bot.command('/cashudecode', commands.decodeToken);
 bot.command('/cashuencode', commands.encodeToken);
 bot.command('/request mint', commands.requestMint);
@@ -25,11 +25,18 @@ bot.action(/^show_qr_(.+)$/, async (ctx) => {
 });
 
 bot.on('message', async (msg) => {
-  if (msg.text && msg.text.startsWith('cashu')) {
-    await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
+  try {
+    if (msg.text && msg.text.startsWith('cashu')) {
+      console.log(`[INFO] Received message from ${msg.from.username}: ${msg.text}`);
+      await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
+    } else {
+      console.log(`[INFO] Ignoring non-cashu message from ${msg.from.username}`);
+    }
+  } catch (error) {
+    console.error(`[ERROR] Error handling message: ${error.message}`, error);
   }
 });
 
-bot.launch();
-
-console.log('Bot is running...');
+bot.launch()
+  .then(() => console.log('Bot is running...'))
+  .catch(error => console.error(`[ERROR] Error launching bot: ${error.message}`, error));
