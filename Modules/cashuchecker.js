@@ -65,7 +65,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         const qrCodePath = await generateQRCode(text);
 
         // Send the QR code message
-        const qrMessage = await bot.sendPhoto(chatId, qrCodePath);
+        const qrMessage = await bot.sendPhoto(chatId, qrCodePath, { caption: `Token: ${text}` });
 
         // Send the status message
         const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, text, cashuApiUrl), {
@@ -82,12 +82,14 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         const updateMessageStatus = async () => {
             if (tokenSpent) return; // Stop updating if token is already spent
             try {
-                const status = await checkTokenStatus(text);
-                if (status === 'spent') {
+                const currentStatus = await checkTokenStatus(text);
+                if (currentStatus === 'spent') {
                     tokenSpent = true;
 
                     // Delete the QR code message and update the status message
                     await bot.deleteMessage(chatId, qrMessage.message_id);
+
+                    // Avoid updating the message with the same content and markup
                     await bot.editMessageText(messages.claimedMessage(username), {
                         chat_id: chatId,
                         message_id: statusMessage.message_id,
