@@ -66,6 +66,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
 
         // Send the QR code message
         const qrMessage = await bot.sendPhoto(chatId, qrCodePath, {}, {
+            filename: 'cashu-token.png',
             contentType: 'image/png'
         });
 
