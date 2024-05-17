@@ -6,10 +6,10 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 bot.start(commands.start);
 bot.help(commands.help);
-bot.command('/Cashu_topwallets', commands.cashuTopWallets);
-bot.command('/Cashu_topmints', commands.cashuTopMints);
-bot.command('/cashu_decode', commands.decodeToken);
-bot.command('/cashu_encode', commands.encodeToken);
+bot.command('/cashu_topwallets', commands.cashuTopWallets);
+bot.command('/cashu_topmints', commands.cashuTopMints);
+bot.command('/cashudecode', commands.decodeToken);
+bot.command('/cashuencode', commands.encodeToken);
 bot.command('/request_mint', commands.requestMint);
 bot.command('/check_invoice', commands.checkInvoice);
 
