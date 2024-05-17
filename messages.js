@@ -48,4 +48,3 @@ Here is your encoded token:
   requestHashMessage: 'Please provide the hash to check the invoice.',
   tokenStatusButtonPending: 'Token Status: Pending',
 };
-
