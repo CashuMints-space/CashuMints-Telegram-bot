@@ -16,6 +16,7 @@ bot.command('/check invoice', commands.checkInvoice);
 bot.action(/^show_qr_(.+)$/, async (ctx) => {
   const url = ctx.match[1];
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(url)}&size=150x150`;
+  console.log(`[INFO] Generating QR code for URL: ${url}`);
   ctx.replyWithPhoto(qrCodeUrl, { caption: `Mint URL: ${url}` });
 });
 
