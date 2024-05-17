@@ -10,6 +10,8 @@ module.exports = {
                '/cashu topmints - Show top mints\n' +
                '/cashudecode - Decode a token\n' +
                '/cashuencode - Encode a token\n' +
+               '/request mint - Request minting tokens\n' +
+               '/check invoice - Check invoice status and get tokens\n' +
                '/help - Show this help message',
   startMessage: 'Welcome to the CashuMints bot! Use /help to see available commands.'
 };
