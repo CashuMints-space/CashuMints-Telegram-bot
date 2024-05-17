@@ -3,6 +3,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const commands = require('./Modules/commands');
 const { handleMessage, checkTokenStatus } = require('./Modules/cashuchecker');
 const messages = require('./messages');
+const { getDecodedToken } = require('@cashu/cashu-ts');
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const cashuApiUrl = process.env.CASHU_API_URL;
@@ -43,19 +44,26 @@ bot.on('message', async (msg) => {
       return; // Commands are already handled by bot.onText()
     }
 
-    // Try to decode the token to see if it contains a valid Cashu token
-    try {
-      const decodedToken = getDecodedToken(text);
-      console.log(`[INFO] Detected Cashu token from ${username}`);
-      await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
-    } catch (error) {
-      // If decoding fails, it means the message is not a Cashu token
-      console.log(`[INFO] No valid Cashu token detected in the message from ${username}`);
-      if (msg.chat.type === 'private') {
-        // Send help message in private chat
-        console.log(`[INFO] Sending help message to ${username}`);
-        await bot.sendMessage(chatId, messages.helpMessage);
+    // Check if the message starts with "cashuA" indicating it might be a Cashu token
+    if (text.startsWith('cashuA')) {
+      try {
+        // Try to decode the token to see if it contains a valid Cashu token
+        const decodedToken = getDecodedToken(text);
+        console.log(`[INFO] Detected Cashu token from ${username}`);
+        await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
+      } catch (error) {
+        // If decoding fails, it means the message is not a valid Cashu token
+        console.log(`[INFO] No valid Cashu token detected in the message from ${username}`);
+        if (msg.chat.type === 'private') {
+          // Send help message in private chat
+          console.log(`[INFO] Sending help message to ${username}`);
+          await bot.sendMessage(chatId, messages.helpMessage);
+        }
       }
+    } else if (msg.chat.type === 'private') {
+      // If not a valid token and in private chat, send help message
+      console.log(`[INFO] No valid Cashu token and not a command. Sending help message to ${username}`);
+      await bot.sendMessage(chatId, messages.helpMessage);
     }
   } catch (error) {
     console.error(`[ERROR] Error handling message: ${error.message}`, error);
