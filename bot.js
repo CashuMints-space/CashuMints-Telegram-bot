@@ -70,4 +70,19 @@ bot.on('message', async (msg) => {
   }
 });
 
+// Handle polling errors
+bot.on('polling_error', (error) => {
+  console.error(`[POLLING_ERROR] ${error.code}: ${error.message}`, error);
+});
+
+// Handle webhook errors
+bot.on('webhook_error', (error) => {
+  console.error(`[WEBHOOK_ERROR] ${error.code}: ${error.message}`, error);
+});
+
+// Handle unexpected errors
+bot.on('error', (error) => {
+  console.error(`[ERROR] ${error.code}: ${error.message}`, error);
+});
+
 console.log('Bot is running...');
