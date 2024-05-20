@@ -8,7 +8,11 @@ const { getDecodedToken } = require('@cashu/cashu-ts');
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const cashuApiUrl = process.env.CASHU_API_URL;
 const claimedDisposeTiming = parseInt(process.env.CLAIMED_DISPOSE_TIMING) || 10;
+const timeoutMinutes = parseInt(process.env.TIMEOUT_MINUTES) || 2;
+const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 4;
 const debugMode = process.env.DEBUG_MODE === 'true';
+
+const mintQueues = {};
 
 const logInfo = (message) => {
     if (debugMode) {
@@ -51,14 +55,14 @@ bot.on('message', async (msg) => {
 
         if (text.startsWith('/')) {
             logInfo(`Handling command: ${text}`);
-            return;
+            return; // Commands are already handled by bot.onText()
         }
 
         if (text.startsWith('cashuA')) {
             try {
                 const decodedToken = getDecodedToken(text);
                 logInfo(`Detected Cashu token from ${username}`);
-                await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
+                await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
             } catch (error) {
                 logInfo(`No valid Cashu token detected in the message from ${username}`);
                 if (msg.chat.type === 'private') {
@@ -75,14 +79,17 @@ bot.on('message', async (msg) => {
     }
 });
 
+// Handle polling errors
 bot.on('polling_error', (error) => {
     logError('Polling error', error);
 });
 
+// Handle webhook errors
 bot.on('webhook_error', (error) => {
     logError('Webhook error', error);
 });
 
+// Handle unexpected errors
 bot.on('error', (error) => {
     logError('Unexpected error', error);
 });
