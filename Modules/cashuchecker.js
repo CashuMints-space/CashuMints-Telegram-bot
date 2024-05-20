@@ -64,20 +64,19 @@ function loadTokenQueue() {
     return loadData('tokenQueue.json') || {};
 }
 
-const handleTokenQueue = async (bot, mintUrl, tokenData, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues) => {
+const handleTokenQueue = async (bot, mintUrl, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues) => {
+    const tokenQueue = loadTokenQueue();
+    
     if (!mintQueues[mintUrl]) {
         mintQueues[mintUrl] = [];
     }
 
-    mintQueues[mintUrl].push(tokenData);
-
-    if (mintQueues[mintUrl].length > 1) {
-        return;
+    if (tokenQueue[mintUrl] && tokenQueue[mintUrl].length > 0) {
+        mintQueues[mintUrl] = tokenQueue[mintUrl];
+    } else {
+        tokenQueue[mintUrl] = mintQueues[mintUrl];
+        saveTokenQueue(tokenQueue);
     }
-
-    const tokenQueue = loadTokenQueue();
-    tokenQueue[mintUrl] = mintQueues[mintUrl];
-    saveTokenQueue(tokenQueue);
 
     while (mintQueues[mintUrl].length > 0) {
         const { chatId, msg, qrCodePath, statusMessage, username, retryCount } = mintQueues[mintUrl][0];
@@ -111,12 +110,13 @@ const handleTokenQueue = async (bot, mintUrl, tokenData, cashuApiUrl, claimedDis
 
                     deleteQRCode(qrCodePath);
                     clearInterval(intervalId);
+
                     mintQueues[mintUrl].shift();
-                    const tokenQueue = loadTokenQueue();
                     tokenQueue[mintUrl] = mintQueues[mintUrl];
                     saveTokenQueue(tokenQueue);
+
                     if (mintQueues[mintUrl].length > 0) {
-                        handleTokenQueue(bot, mintUrl, mintQueues[mintUrl][0], cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
+                        handleTokenQueue(bot, mintUrl, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
                     }
                 }
             } catch (error) {
@@ -171,7 +171,12 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, timeou
 
         await bot.deleteMessage(chatId, msg.message_id);
 
-        handleTokenQueue(bot, mintUrl, { chatId, msg, qrCodePath, statusMessage, username, retryCount: 0 }, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
+        if (!mintQueues[mintUrl]) {
+            mintQueues[mintUrl] = [];
+        }
+        mintQueues[mintUrl].push({ chatId, msg, qrCodePath, statusMessage, username, retryCount: 0 });
+
+        handleTokenQueue(bot, mintUrl, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
 
     } catch (error) {
         console.error('Error processing message:', error);
