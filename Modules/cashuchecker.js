@@ -122,8 +122,12 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                 }
             } catch (error) {
                 if (error.message.includes('Rate limit exceeded')) {
-                    console.error('Rate limit exceeded. Stopping updates for this message.');
+                    console.error('Rate limit exceeded. Pausing updates for this message.');
                     clearInterval(intervalId);
+                    setTimeout(() => {
+                        console.log('Resuming updates after timeout.');
+                        intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
+                    }, timeoutMinutes * 60000);
                 } else if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
                     console.error('Error updating message status:', error);
                 }
@@ -131,7 +135,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         };
 
         // Set interval to check the token status every 5 seconds
-        const intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
+        let intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
 
         // Delete the original token message if it's a valid token
         await bot.deleteMessage(chatId, msg.message_id);
