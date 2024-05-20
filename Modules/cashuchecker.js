@@ -65,12 +65,11 @@ function loadTokenQueue() {
 }
 
 const handleTokenQueue = async (bot, mintUrl, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues) => {
-    const tokenQueue = loadTokenQueue();
-    
     if (!mintQueues[mintUrl]) {
         mintQueues[mintUrl] = [];
     }
 
+    const tokenQueue = loadTokenQueue();
     if (tokenQueue[mintUrl] && tokenQueue[mintUrl].length > 0) {
         mintQueues[mintUrl] = tokenQueue[mintUrl];
     } else {
@@ -89,7 +88,7 @@ const handleTokenQueue = async (bot, mintUrl, cashuApiUrl, claimedDisposeTiming,
                 if (currentStatus === 'spent') {
                     tokenSpent = true;
 
-                    await bot.deleteMessage(chatId, qrCodePath);
+                    await bot.deleteMessage(chatId, qrMessage.message_id);
                     const newMessage = messages.claimedMessage(username);
                     if (newMessage !== statusMessage.text) {
                         await bot.editMessageText(newMessage, {
@@ -136,7 +135,7 @@ const handleTokenQueue = async (bot, mintUrl, cashuApiUrl, claimedDisposeTiming,
         };
 
         const intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
-        mintQueues[mintUrl].intervalId = intervalId;
+        mintQueues[mintUrl][0].intervalId = intervalId;
     }
 };
 
