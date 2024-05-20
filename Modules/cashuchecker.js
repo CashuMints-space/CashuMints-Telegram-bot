@@ -32,8 +32,7 @@ async function checkTokenStatus(tokenEncoded) {
         const wallet = new CashuWallet(mint, keys);
 
         const spentProofs = await wallet.checkProofsSpent(proofs);
-        const status = spentProofs.length === proofs.length ? 'spent' : 'pending';
-        return status;
+        return spentProofs.length === proofs.length ? 'spent' : 'pending';
     } catch (error) {
         console.error('Error checking token:', error);
         throw error;
@@ -56,90 +55,71 @@ function deleteQRCode(filePath) {
 
 // Function to save the token queue to a JSON file
 function saveTokenQueue(tokenQueue) {
-    saveData('tokenQueue.json', tokenQueue);
+    fs.writeFileSync(tokenQueueFile, JSON.stringify(tokenQueue, null, 2));
 }
 
 // Function to load the token queue from a JSON file
 function loadTokenQueue() {
-    return loadData('tokenQueue.json') || {};
+    if (fs.existsSync(tokenQueueFile)) {
+        return JSON.parse(fs.readFileSync(tokenQueueFile, 'utf-8'));
+    }
+    return {};
 }
 
-const handleTokenQueue = async (bot, mintUrl, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues) => {
-    if (!mintQueues[mintUrl]) {
-        mintQueues[mintUrl] = [];
-    }
+async function updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds) {
+    const { chatId, msg, qrCodePath, statusMessage, username, retryCount } = tokenData;
 
-    const tokenQueue = loadTokenQueue();
-    if (tokenQueue[mintUrl] && tokenQueue[mintUrl].length > 0) {
-        mintQueues[mintUrl] = tokenQueue[mintUrl];
-    } else {
-        tokenQueue[mintUrl] = mintQueues[mintUrl];
-        saveTokenQueue(tokenQueue);
-    }
+    try {
+        const currentStatus = await checkTokenStatus(msg.text);
+        if (currentStatus === 'spent') {
+            await bot.deleteMessage(chatId, statusMessage.message_id);
+            await bot.deleteMessage(chatId, qrCodePath.message_id);
 
-    while (mintQueues[mintUrl].length > 0) {
-        const { chatId, msg, qrCodePath, statusMessage, username, retryCount } = mintQueues[mintUrl][0];
-        let tokenSpent = false;
+            const newMessage = messages.claimedMessage(username);
+            await bot.sendMessage(chatId, newMessage, {
+                parse_mode: 'Markdown',
+                disable_web_page_preview: true,
+            });
 
-        const updateMessageStatus = async () => {
-            if (tokenSpent) return;
-            try {
-                const currentStatus = await checkTokenStatus(msg.text);
-                if (currentStatus === 'spent') {
-                    tokenSpent = true;
-
-                    await bot.deleteMessage(chatId, qrMessage.message_id);
-                    const newMessage = messages.claimedMessage(username);
-                    if (newMessage !== statusMessage.text) {
-                        await bot.editMessageText(newMessage, {
-                            chat_id: chatId,
-                            message_id: statusMessage.message_id,
-                            parse_mode: 'Markdown',
-                            disable_web_page_preview: true,
-                        });
-                        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-                            chat_id: chatId,
-                            message_id: statusMessage.message_id
-                        });
-                    }
-
-                    setTimeout(() => {
-                        bot.deleteMessage(chatId, statusMessage.message_id);
-                    }, claimedDisposeTiming * 60000);
-
-                    deleteQRCode(qrCodePath);
-                    clearInterval(intervalId);
-
-                    mintQueues[mintUrl].shift();
-                    tokenQueue[mintUrl] = mintQueues[mintUrl];
-                    saveTokenQueue(tokenQueue);
-
-                    if (mintQueues[mintUrl].length > 0) {
-                        handleTokenQueue(bot, mintUrl, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
-                    }
-                }
-            } catch (error) {
-                if (error.status === 429) {
-                    console.error('Rate limit exceeded. Retrying after timeout.');
-                    clearInterval(intervalId);
-                    const nextRetryCount = (retryCount || 0) + 1;
-                    const nextRetryInterval = Math.min(defaultRetryInterval * Math.pow(2, nextRetryCount), 24 * 60 * 60 * 1000); // Exponential backoff up to 24 hours
-                    setTimeout(() => {
-                        mintQueues[mintUrl][0].retryCount = nextRetryCount;
-                        updateMessageStatus();
-                    }, nextRetryInterval);
-                } else if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
-                    console.error('Error updating message status:', error);
-                }
+            deleteQRCode(qrCodePath);
+            return true; // Token is spent and processed
+        }
+    } catch (error) {
+        if (error.status === 429) {
+            console.error('Rate limit exceeded. Retrying after timeout.');
+            if (retryCount < maxRetries) {
+                const nextRetryCount = retryCount + 1;
+                const nextRetryInterval = defaultRetryInterval * Math.pow(2, nextRetryCount);
+                setTimeout(() => {
+                    tokenData.retryCount = nextRetryCount;
+                    updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds);
+                }, nextRetryInterval);
+            } else {
+                console.error('Max retries reached for token:', msg.text);
             }
-        };
-
-        const intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
-        mintQueues[mintUrl][0].intervalId = intervalId;
+        } else {
+            console.error('Error updating token status:', error);
+        }
     }
-};
+    return false; // Token is not yet spent
+}
 
-async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues) {
+async function processTokenQueue(bot, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds) {
+    const tokenQueue = loadTokenQueue();
+
+    for (const mintUrl of Object.keys(tokenQueue)) {
+        const mintQueue = tokenQueue[mintUrl];
+        for (const tokenData of mintQueue) {
+            const isSpent = await updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds);
+            if (isSpent) {
+                mintQueue.shift();
+                saveTokenQueue(tokenQueue);
+            }
+        }
+    }
+}
+
+async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds, mintQueues) {
     const chatId = msg.chat.id;
     const text = msg.text;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
@@ -170,12 +150,23 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, timeou
 
         await bot.deleteMessage(chatId, msg.message_id);
 
-        if (!mintQueues[mintUrl]) {
-            mintQueues[mintUrl] = [];
-        }
-        mintQueues[mintUrl].push({ chatId, msg, qrCodePath, statusMessage, username, retryCount: 0 });
+        const tokenData = {
+            chatId,
+            msg,
+            qrCodePath: qrMessage,
+            statusMessage,
+            username,
+            retryCount: 0,
+        };
 
-        handleTokenQueue(bot, mintUrl, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
+        const tokenQueue = loadTokenQueue();
+        if (!tokenQueue[mintUrl]) {
+            tokenQueue[mintUrl] = [];
+        }
+        tokenQueue[mintUrl].push(tokenData);
+        saveTokenQueue(tokenQueue);
+
+        processTokenQueue(bot, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds);
 
     } catch (error) {
         console.error('Error processing message:', error);
