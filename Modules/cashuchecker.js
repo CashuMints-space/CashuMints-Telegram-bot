@@ -3,12 +3,21 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 const messages = require('../messages');
+const { saveData, loadData } = require('./dataCache');
 
 require('dotenv').config();
 
 const qrCodeDir = './qrcodes';
+const tokenQueueFile = path.join(__dirname, '../data/tokenQueue.json');
+const maxRetries = 3;
+const defaultRetryInterval = parseInt(process.env.TIMEOUT_MINUTES) * 60 * 1000;
+
 if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir);
+}
+
+if (!fs.existsSync(tokenQueueFile)) {
+    fs.writeFileSync(tokenQueueFile, JSON.stringify({}));
 }
 
 // Function to check if the Cashu token has been spent
@@ -45,6 +54,16 @@ function deleteQRCode(filePath) {
     });
 }
 
+// Function to save the token queue to a JSON file
+function saveTokenQueue(tokenQueue) {
+    saveData('tokenQueue.json', tokenQueue);
+}
+
+// Function to load the token queue from a JSON file
+function loadTokenQueue() {
+    return loadData('tokenQueue.json') || {};
+}
+
 const handleTokenQueue = async (bot, mintUrl, tokenData, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues) => {
     if (!mintQueues[mintUrl]) {
         mintQueues[mintUrl] = [];
@@ -56,8 +75,12 @@ const handleTokenQueue = async (bot, mintUrl, tokenData, cashuApiUrl, claimedDis
         return;
     }
 
+    const tokenQueue = loadTokenQueue();
+    tokenQueue[mintUrl] = mintQueues[mintUrl];
+    saveTokenQueue(tokenQueue);
+
     while (mintQueues[mintUrl].length > 0) {
-        const { chatId, msg, qrCodePath, statusMessage, username } = mintQueues[mintUrl][0];
+        const { chatId, msg, qrCodePath, statusMessage, username, retryCount } = mintQueues[mintUrl][0];
         let tokenSpent = false;
 
         const updateMessageStatus = async () => {
@@ -89,6 +112,9 @@ const handleTokenQueue = async (bot, mintUrl, tokenData, cashuApiUrl, claimedDis
                     deleteQRCode(qrCodePath);
                     clearInterval(intervalId);
                     mintQueues[mintUrl].shift();
+                    const tokenQueue = loadTokenQueue();
+                    tokenQueue[mintUrl] = mintQueues[mintUrl];
+                    saveTokenQueue(tokenQueue);
                     if (mintQueues[mintUrl].length > 0) {
                         handleTokenQueue(bot, mintUrl, mintQueues[mintUrl][0], cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
                     }
@@ -97,9 +123,12 @@ const handleTokenQueue = async (bot, mintUrl, tokenData, cashuApiUrl, claimedDis
                 if (error.status === 429) {
                     console.error('Rate limit exceeded. Retrying after timeout.');
                     clearInterval(intervalId);
+                    const nextRetryCount = (retryCount || 0) + 1;
+                    const nextRetryInterval = Math.min(defaultRetryInterval * Math.pow(2, nextRetryCount), 24 * 60 * 60 * 1000); // Exponential backoff up to 24 hours
                     setTimeout(() => {
+                        mintQueues[mintUrl][0].retryCount = nextRetryCount;
                         updateMessageStatus();
-                    }, timeoutMinutes * 60 * 1000);
+                    }, nextRetryInterval);
                 } else if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
                     console.error('Error updating message status:', error);
                 }
@@ -142,7 +171,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, timeou
 
         await bot.deleteMessage(chatId, msg.message_id);
 
-        handleTokenQueue(bot, mintUrl, { chatId, msg, qrCodePath, statusMessage, username }, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
+        handleTokenQueue(bot, mintUrl, { chatId, msg, qrCodePath, statusMessage, username, retryCount: 0 }, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
 
     } catch (error) {
         console.error('Error processing message:', error);
