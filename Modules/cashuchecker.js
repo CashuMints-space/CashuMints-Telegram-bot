@@ -3,21 +3,16 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 const messages = require('../messages');
-const { saveData, loadData } = require('./dataCache');
 
 require('dotenv').config();
 
 const qrCodeDir = './qrcodes';
-const tokenQueueFile = path.join(__dirname, '../data/tokenQueue.json');
-const maxRetries = 3;
-const defaultRetryInterval = parseInt(process.env.TIMEOUT_MINUTES) * 60 * 1000;
+const debugMode = process.env.DEBUG_MODE === 'true';
+const timeoutMinutes = parseInt(process.env.TIMEOUT_MINUTES) || 2;
+const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 5;
 
 if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir);
-}
-
-if (!fs.existsSync(tokenQueueFile)) {
-    fs.writeFileSync(tokenQueueFile, JSON.stringify({}));
 }
 
 // Function to check if the Cashu token has been spent
@@ -53,93 +48,32 @@ function deleteQRCode(filePath) {
     });
 }
 
-// Function to save the token queue to a JSON file
-function saveTokenQueue(tokenQueue) {
-    fs.writeFileSync(tokenQueueFile, JSON.stringify(tokenQueue, null, 2));
-}
-
-// Function to load the token queue from a JSON file
-function loadTokenQueue() {
-    if (fs.existsSync(tokenQueueFile)) {
-        return JSON.parse(fs.readFileSync(tokenQueueFile, 'utf-8'));
-    }
-    return {};
-}
-
-async function updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds) {
-    const { chatId, msg, qrCodePath, statusMessage, username, retryCount } = tokenData;
-
-    try {
-        const currentStatus = await checkTokenStatus(msg.text);
-        if (currentStatus === 'spent') {
-            await bot.deleteMessage(chatId, qrCodePath.message_id);
-            await bot.deleteMessage(chatId, statusMessage.message_id);
-
-            const newMessage = messages.claimedMessage(username);
-            await bot.sendMessage(chatId, newMessage, {
-                parse_mode: 'Markdown',
-                disable_web_page_preview: true,
-            });
-
-            deleteQRCode(qrCodePath.filePath);
-            return true; // Token is spent and processed
-        }
-    } catch (error) {
-        if (error.code === 'ETELEGRAM' && error.response && error.response.body.description === 'Too Many Requests: retry after') {
-            console.error('Rate limit exceeded. Retrying after timeout.');
-            if (retryCount < maxRetries) {
-                const nextRetryCount = retryCount + 1;
-                const nextRetryInterval = defaultRetryInterval * Math.pow(2, nextRetryCount);
-                setTimeout(() => {
-                    tokenData.retryCount = nextRetryCount;
-                    updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds);
-                }, nextRetryInterval);
-            } else {
-                console.error('Max retries reached for token:', msg.text);
-            }
-        } else {
-            console.error('Error updating token status:', error);
-        }
-    }
-    return false; // Token is not yet spent
-}
-
-async function processTokenQueue(bot, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds) {
-    const tokenQueue = loadTokenQueue();
-
-    for (const mintUrl of Object.keys(tokenQueue)) {
-        const mintQueue = tokenQueue[mintUrl];
-        for (const tokenData of mintQueue) {
-            const isSpent = await updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds);
-            if (isSpent) {
-                mintQueue.shift();
-                saveTokenQueue(tokenQueue);
-            }
-        }
-    }
-}
-
-async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds, mintQueues) {
+async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
     const chatId = msg.chat.id;
     const text = msg.text;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
 
     try {
+        // Check if the token has been spent before processing
         const status = await checkTokenStatus(text);
         if (status === 'spent') {
-            console.log(`[INFO] Token already spent: ${text}`);
-            return;
+            if (debugMode) console.log(`[INFO] Token already spent: ${text}`);
+            return; // Do not process further if the token is already spent
         }
 
+        // Decode the token to check if it's valid
         const decodedToken = getDecodedToken(text);
-        const mintUrl = decodedToken.token[0].mint;
 
+        // Generate QR code
         const qrCodePath = await generateQRCode(text);
+
+        // Send the QR code message
         const qrMessage = await bot.sendPhoto(chatId, qrCodePath, {}, {
             filename: 'cashu-token.png',
             contentType: 'image/png'
         });
 
+        // Send the status message
         const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, cashuApiUrl), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
@@ -148,29 +82,72 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, checkI
             }
         });
 
-        await bot.deleteMessage(chatId, msg.message_id);
+        let tokenSpent = false;
 
-        const tokenData = {
-            chatId,
-            msg,
-            qrCodePath: { message_id: qrMessage.message_id, filePath: qrCodePath },
-            statusMessage: { message_id: statusMessage.message_id },
-            username,
-            retryCount: 0,
+        // Function to update the message status
+        const updateMessageStatus = async () => {
+            if (tokenSpent) return; // Stop updating if token is already spent
+            try {
+                const currentStatus = await checkTokenStatus(text);
+                if (currentStatus === 'spent') {
+                    tokenSpent = true;
+
+                    // Delete the QR code message and update the status message
+                    await bot.deleteMessage(chatId, qrMessage.message_id);
+
+                    // Avoid updating the message with the same content and markup
+                    const newMessage = messages.claimedMessage(username);
+                    if (newMessage !== statusMessage.text) {
+                        await bot.editMessageText(newMessage, {
+                            chat_id: chatId,
+                            message_id: statusMessage.message_id,
+                            parse_mode: 'Markdown',
+                            disable_web_page_preview: true,
+                        });
+                        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                            chat_id: chatId,
+                            message_id: statusMessage.message_id
+                        });
+                    }
+
+                    // Schedule deletion of the claimed message after the specified time
+                    setTimeout(() => {
+                        bot.deleteMessage(chatId, statusMessage.message_id);
+                    }, claimedDisposeTiming * 60000);
+
+                    // Delete the QR code file
+                    deleteQRCode(qrCodePath);
+                    // Clear the interval
+                    clearInterval(intervalId);
+                }
+            } catch (error) {
+                if (error.message.includes('Rate limit exceeded')) {
+                    console.error('Rate limit exceeded. Stopping updates for this message.');
+                    clearInterval(intervalId);
+                } else if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
+                    console.error('Error updating message status:', error);
+                }
+            }
         };
 
-        const tokenQueue = loadTokenQueue();
-        if (!tokenQueue[mintUrl]) {
-            tokenQueue[mintUrl] = [];
-        }
-        tokenQueue[mintUrl].push(tokenData);
-        saveTokenQueue(tokenQueue);
+        // Set interval to check the token status every 5 seconds
+        const intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
 
-        processTokenQueue(bot, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds);
+        // Delete the original token message if it's a valid token
+        await bot.deleteMessage(chatId, msg.message_id);
 
     } catch (error) {
-        console.error('Error processing message:', error);
-        await bot.sendMessage(chatId, messages.errorMessage);
+        if (error.message.includes('Timeout pinging that mint')) {
+            console.error('Timeout occurred while pinging the mint:', error);
+            setTimeout(() => {
+                console.log('Resuming processing after timeout.');
+                handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
+            }, timeoutMinutes * 60000);
+        } else {
+            console.error('Error processing message:', error);
+            // Send error message if token is invalid
+            await bot.sendMessage(chatId, messages.errorMessage);
+        }
     }
 }
 
