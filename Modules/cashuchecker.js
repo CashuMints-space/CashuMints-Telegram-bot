@@ -107,6 +107,7 @@ const handleTokenQueue = async (bot, mintUrl, tokenData, cashuApiUrl, claimedDis
         };
 
         const intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
+        mintQueues[mintUrl].intervalId = intervalId;
     }
 };
 
