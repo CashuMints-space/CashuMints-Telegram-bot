@@ -8,7 +8,7 @@ const { getDecodedToken } = require('@cashu/cashu-ts');
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const cashuApiUrl = process.env.CASHU_API_URL;
 const claimedDisposeTiming = parseInt(process.env.CLAIMED_DISPOSE_TIMING) || 10;
-const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 4;
+const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 5;
 const debugMode = process.env.DEBUG_MODE === 'true';
 
 const logInfo = (message) => {
@@ -59,7 +59,7 @@ bot.on('message', async (msg) => {
             try {
                 const decodedToken = getDecodedToken(text);
                 logInfo(`Detected Cashu token from ${username}`);
-                await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, checkIntervalSeconds, {});
+                await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
             } catch (error) {
                 logInfo(`No valid Cashu token detected in the message from ${username}`);
                 if (msg.chat.type === 'private') {
