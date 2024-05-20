@@ -11,6 +11,9 @@ if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir);
 }
 
+const debugMode = process.env.DEBUG_MODE === 'true';
+const timeoutMinutes = parseInt(process.env.TIMEOUT_MINUTES) || 5;
+
 // Function to check if the Cashu token has been spent
 async function checkTokenStatus(tokenEncoded) {
     try {
@@ -54,7 +57,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         // Check if the token has been spent before processing
         const status = await checkTokenStatus(text);
         if (status === 'spent') {
-            console.log(`[INFO] Token already spent: ${text}`);
+            if (debugMode) console.log(`[INFO] Token already spent: ${text}`);
             return; // Do not process further if the token is already spent
         }
 
@@ -118,7 +121,10 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                     clearInterval(intervalId);
                 }
             } catch (error) {
-                if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
+                if (error.message.includes('Rate limit exceeded')) {
+                    console.error('Rate limit exceeded. Stopping updates for this message.');
+                    clearInterval(intervalId);
+                } else if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
                     console.error('Error updating message status:', error);
                 }
             }
@@ -131,9 +137,17 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         await bot.deleteMessage(chatId, msg.message_id);
 
     } catch (error) {
-        console.error('Error processing message:', error);
-        // Send error message if token is invalid
-        await bot.sendMessage(chatId, messages.errorMessage);
+        if (error.message.includes('Timeout pinging that mint')) {
+            console.error('Timeout occurred while pinging the mint:', error);
+            setTimeout(() => {
+                console.log('Resuming processing after timeout.');
+                handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
+            }, timeoutMinutes * 60000);
+        } else {
+            console.error('Error processing message:', error);
+            // Send error message if token is invalid
+            await bot.sendMessage(chatId, messages.errorMessage);
+        }
     }
 }
 
