@@ -81,7 +81,7 @@ async function updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDi
                 disable_web_page_preview: true,
             });
 
-            deleteQRCode(qrCodePath);
+            deleteQRCode(qrCodePath.filePath);
             return true; // Token is spent and processed
         }
     } catch (error) {
@@ -153,7 +153,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, checkI
         const tokenData = {
             chatId,
             msg,
-            qrCodePath: { message_id: qrMessage.message_id },
+            qrCodePath: { message_id: qrMessage.message_id, filePath: qrCodePath },
             statusMessage: { message_id: statusMessage.message_id },
             username,
             retryCount: 0,
