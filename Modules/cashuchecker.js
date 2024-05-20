@@ -72,8 +72,8 @@ async function updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDi
     try {
         const currentStatus = await checkTokenStatus(msg.text);
         if (currentStatus === 'spent') {
-            await bot.deleteMessage(chatId, statusMessage.message_id);
             await bot.deleteMessage(chatId, qrCodePath.message_id);
+            await bot.deleteMessage(chatId, statusMessage.message_id);
 
             const newMessage = messages.claimedMessage(username);
             await bot.sendMessage(chatId, newMessage, {
@@ -85,7 +85,7 @@ async function updateTokenStatus(bot, mintUrl, tokenData, cashuApiUrl, claimedDi
             return true; // Token is spent and processed
         }
     } catch (error) {
-        if (error.status === 429) {
+        if (error.code === 'ETELEGRAM' && error.response && error.response.body.description === 'Too Many Requests: retry after') {
             console.error('Rate limit exceeded. Retrying after timeout.');
             if (retryCount < maxRetries) {
                 const nextRetryCount = retryCount + 1;
@@ -153,8 +153,8 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, checkI
         const tokenData = {
             chatId,
             msg,
-            qrCodePath: qrMessage,
-            statusMessage,
+            qrCodePath: { message_id: qrMessage.message_id },
+            statusMessage: { message_id: statusMessage.message_id },
             username,
             retryCount: 0,
         };
