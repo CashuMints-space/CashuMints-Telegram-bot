@@ -125,28 +125,4 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming, timeou
         const decodedToken = getDecodedToken(text);
         const mintUrl = decodedToken.token[0].mint;
 
-        const qrCodePath = await generateQRCode(text);
-        const qrMessage = await bot.sendPhoto(chatId, qrCodePath, {}, {
-            filename: 'cashu-token.png',
-            contentType: 'image/png'
-        });
-
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, cashuApiUrl), {
-            parse_mode: 'Markdown',
-            disable_web_page_preview: true,
-            reply_markup: {
-                inline_keyboard: [[{ text: messages.tokenStatusButtonPending, callback_data: 'pending' }]]
-            }
-        });
-
-        await bot.deleteMessage(chatId, msg.message_id);
-
-        handleTokenQueue(bot, mintUrl, { chatId, msg, qrCodePath, statusMessage, username }, cashuApiUrl, claimedDisposeTiming, timeoutMinutes, checkIntervalSeconds, mintQueues);
-
-    } catch (error) {
-        console.error('Error processing message:', error);
-        await bot.sendMessage(chatId, messages.errorMessage);
-    }
-}
-
-module.exports = { handleMessage, checkTokenStatus, generateQRCode, deleteQRCode };
+        const qrCodePath = await generateQRCode(text)
