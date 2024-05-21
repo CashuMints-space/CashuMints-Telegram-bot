@@ -7,6 +7,10 @@ const messages = require('../messages');
 require('dotenv').config();
 
 const qrCodeDir = './qrcodes';
+const debugMode = process.env.DEBUG_MODE === 'true';
+const timeoutMinutes = parseInt(process.env.TIMEOUT_MINUTES) || 2;
+const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 5;
+
 if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir);
 }
@@ -23,8 +27,7 @@ async function checkTokenStatus(tokenEncoded) {
         const wallet = new CashuWallet(mint, keys);
 
         const spentProofs = await wallet.checkProofsSpent(proofs);
-        const status = spentProofs.length === proofs.length ? 'spent' : 'pending';
-        return status;
+        return spentProofs.length === proofs.length ? 'spent' : 'pending';
     } catch (error) {
         console.error('Error checking token:', error);
         throw error;
@@ -54,7 +57,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         // Check if the token has been spent before processing
         const status = await checkTokenStatus(text);
         if (status === 'spent') {
-            console.log(`[INFO] Token already spent: ${text}`);
+            if (debugMode) console.log(`[INFO] Token already spent: ${text}`);
             return; // Do not process further if the token is already spent
         }
 
@@ -118,22 +121,37 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                     clearInterval(intervalId);
                 }
             } catch (error) {
-                if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
+                if (error.message.includes('Rate limit exceeded')) {
+                    console.error('Rate limit exceeded. Pausing updates for this message.');
+                    clearInterval(intervalId);
+                    setTimeout(() => {
+                        console.log('Resuming updates after timeout.');
+                        intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
+                    }, timeoutMinutes * 60000);
+                } else if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
                     console.error('Error updating message status:', error);
                 }
             }
         };
 
-        // Set interval to check the token status every 4 seconds
-        const intervalId = setInterval(updateMessageStatus, 4000);
+        // Set interval to check the token status every 5 seconds
+        let intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
 
         // Delete the original token message if it's a valid token
         await bot.deleteMessage(chatId, msg.message_id);
 
     } catch (error) {
-        console.error('Error processing message:', error);
-        // Send error message if token is invalid
-        await bot.sendMessage(chatId, messages.errorMessage);
+        if (error.message.includes('Timeout pinging that mint')) {
+            console.error('Timeout occurred while pinging the mint:', error);
+            setTimeout(() => {
+                console.log('Resuming processing after timeout.');
+                handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
+            }, timeoutMinutes * 60000);
+        } else {
+            console.error('Error processing message:', error);
+            // Send error message if token is invalid
+            await bot.sendMessage(chatId, messages.errorMessage);
+        }
     }
 }
 
