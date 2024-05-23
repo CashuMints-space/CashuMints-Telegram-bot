@@ -27,7 +27,8 @@ If a Cashu token is detected in the message, the bot will generate a QR code, se
 ## Error Handling
 The bot logs detailed error messages and statuses to the console for easier debugging.
 Errors related to polling, webhook, and unexpected issues are handled and logged appropriately.
-Contributing
+
+## Contributing
 We welcome contributions! Please fork the repository and create a pull request with your changes.
 
 ## License
