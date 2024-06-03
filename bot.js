@@ -21,26 +21,24 @@ const logError = (message, error) => {
     console.error(`[ERROR] ${message}: ${error.message}`, error);
 };
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start$/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     logInfo(`${username} started the bot.`);
     bot.sendMessage(chatId, messages.startMessage);
 });
 
-bot.onText(/\/help/, (msg) => {
+bot.onText(/\/help$/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     logInfo(`${username} requested help.`);
     bot.sendMessage(chatId, messages.helpMessage);
 });
 
-bot.onText(/\/cashumints top/, (msg) => commands.cashuTopMints(bot, msg));
-bot.onText(/\/cashuwallets top/, (msg) => commands.cashuTopWallets(bot, msg));
-bot.onText(/\/cashudecode/, (msg) => commands.decodeToken(bot, msg));
-bot.onText(/\/cashuencode/, (msg) => commands.encodeToken(bot, msg));
-bot.onText(/\/request mint/, (msg) => commands.requestMint(bot, msg));
-bot.onText(/\/check invoice/, (msg) => commands.checkInvoice(bot, msg));
+bot.onText(/\/topcashumints$/, (msg) => commands.cashuTopMints(bot, msg));
+bot.onText(/\/topcashuwallets$/, (msg) => commands.cashuTopWallets(bot, msg));
+bot.onText(/\/cashudecode$/, (msg) => commands.decodeToken(bot, msg));
+bot.onText(/\/check invoice$/, (msg) => commands.checkInvoice(bot, msg));
 
 bot.on('message', async (msg) => {
     try {
