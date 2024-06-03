@@ -16,10 +16,9 @@ Here’s how to use the CashuMints Telegram Bot:
 
 1. **Send a Cashu token:** If you send me a Cashu token, I’ll generate a QR code and check its status.
 2. **Commands:**
-   - /cashumints top: Show top mints.
-   - /cashuwallets top: Show top wallets.
+   - /topcashumints: Show top 3 mints.
+   - /topcashuwallets: Show top 3 wallets.
    - /cashudecode [token]: Decode a Cashu token.
-   - /cashuencode [token data]: Encode token data.
 
 If you have any questions, feel free to ask!
   `,
@@ -33,12 +32,6 @@ Click here to claim to Lightning: [Claim link](${cashuApiUrl})
 ${username} shared a Cashu token 🥜
 
 Cashu token has been claimed ✅
-  `,
-  mintRequestMessage: (pr, hash) => `
-Mint request successful!
-
-Payment request (invoice): \`${pr}\`
-Hash: \`${hash}\`
   `,
   tokenMessage: (encoded) => `
 Here is your encoded token:
