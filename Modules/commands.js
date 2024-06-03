@@ -35,8 +35,8 @@ const commands = {
 
         const mints = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/', 'mints.json');
         if (mints) {
-            const topMints = mints.slice(0, 4);
-            console.log(`[DEBUG] Top 4 mints: ${JSON.stringify(topMints)}`);
+            const topMints = mints.slice(0, 3);
+            console.log(`[DEBUG] Top 3 mints: ${JSON.stringify(topMints)}`);
             topMints.forEach(mint => {
                 bot.sendMessage(chatId, formatMintMessage(mint), {
                     parse_mode: 'Markdown',
@@ -59,8 +59,8 @@ const commands = {
 
         const wallets = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/', 'wallets.json');
         if (wallets) {
-            const topWallets = wallets.slice(0, 4);
-            console.log(`[DEBUG] Top 4 wallets: ${JSON.stringify(topWallets)}`);
+            const topWallets = wallets.slice(0, 3);
+            console.log(`[DEBUG] Top 3 wallets: ${JSON.stringify(topWallets)}`);
             topWallets.forEach(wallet => {
                 bot.sendMessage(chatId, formatMintMessage(wallet), {
                     parse_mode: 'Markdown',
@@ -72,22 +72,6 @@ const commands = {
                 });
             });
         } else {
-            bot.sendMessage(chatId, messages.errorMessage);
-        }
-    },
-
-    requestMint: async (bot, msg) => {
-        const chatId = msg.chat.id;
-        const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-        console.log(`[INFO] ${username} requested minting.`);
-
-        const amount = 200; // Example amount, you can customize this or make it dynamic
-        try {
-            const { pr, hash } = await wallet.requestMint(amount);
-            console.log(`[DEBUG] Mint request successful: PR=${pr}, Hash=${hash}`);
-            bot.sendMessage(chatId, messages.mintRequestMessage(pr, hash));
-        } catch (error) {
-            console.error('Error requesting mint:', error);
             bot.sendMessage(chatId, messages.errorMessage);
         }
     },
@@ -135,26 +119,6 @@ const commands = {
             bot.sendMessage(chatId, `Decoded Token: ${JSON.stringify(decoded, null, 2)}`);
         } catch (error) {
             console.error('Error decoding token:', error);
-            bot.sendMessage(chatId, messages.errorMessage);
-        }
-    },
-
-    encodeToken: async (bot, msg) => {
-        const chatId = msg.chat.id;
-        const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-        console.log(`[INFO] ${username} requested to encode a token.`);
-
-        const tokenData = msg.text.split(' ')[1]; // Extract the token data from the command
-        if (!tokenData) {
-            bot.sendMessage(chatId, 'Please provide token data to encode.');
-            return;
-        }
-        try {
-            const encoded = getEncodedToken(JSON.parse(tokenData));
-            console.log(`[DEBUG] Token encoded: ${encoded}`);
-            bot.sendMessage(chatId, `Encoded Token: ${encoded}`);
-        } catch (error) {
-            console.error('Error encoding token:', error);
             bot.sendMessage(chatId, messages.errorMessage);
         }
     },
