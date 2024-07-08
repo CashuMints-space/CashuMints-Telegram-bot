@@ -1,7 +1,7 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const commands = require('./Modules/commands');
-const { handleMessage } = require('./Modules/cashuchecker');
+const { handleMessage, checkPendingTokens } = require('./Modules/cashuchecker');
 const messages = require('./messages');
 const { getDecodedToken } = require('@cashu/cashu-ts');
 
@@ -25,14 +25,14 @@ bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     logInfo(`${username} started the bot.`);
-    bot.sendMessage(chatId, messages.startMessage, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, messages.startMessage);
 });
 
 bot.onText(/\/help/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     logInfo(`${username} requested help.`);
-    bot.sendMessage(chatId, messages.helpMessage, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, messages.helpMessage);
 });
 
 bot.onText(/\/cashumints top/, (msg) => commands.cashuTopMints(bot, msg));
@@ -47,12 +47,12 @@ bot.on('message', async (msg) => {
 
         logInfo(`Received message from ${username}: ${text}`);
 
-        if (text && text.startsWith('/')) {
+        if (text.startsWith('/')) {
             logInfo(`Handling command: ${text}`);
             return; // Commands are already handled by bot.onText()
         }
 
-        if (text && text.startsWith('cashuA')) {
+        if (text.startsWith('cashuA')) {
             try {
                 const decodedToken = getDecodedToken(text);
                 logInfo(`Detected Cashu token from ${username}`);
@@ -61,12 +61,12 @@ bot.on('message', async (msg) => {
                 logInfo(`No valid Cashu token detected in the message from ${username}`);
                 if (msg.chat.type === 'private') {
                     logInfo(`Sending help message to ${username}`);
-                    await bot.sendMessage(chatId, messages.helpMessage, { parse_mode: 'Markdown' });
+                    await bot.sendMessage(chatId, messages.helpMessage);
                 }
             }
         } else if (msg.chat.type === 'private') {
             logInfo(`No valid Cashu token and not a command. Sending help message to ${username}`);
-            await bot.sendMessage(chatId, messages.helpMessage, { parse_mode: 'Markdown' });
+            await bot.sendMessage(chatId, messages.helpMessage);
         }
     } catch (error) {
         logError('Error handling message', error);
@@ -87,5 +87,8 @@ bot.on('webhook_error', (error) => {
 bot.on('error', (error) => {
     logError('Unexpected error', error);
 });
+
+// Check pending tokens on startup
+checkPendingTokens(bot);
 
 console.log('Bot is running...');
