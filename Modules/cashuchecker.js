@@ -88,7 +88,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
 
         // Determine the token amount and currency
         const amount = decodedToken.token[0].proofs.reduce((sum, proof) => sum + proof.amount, 0);
-        const currency = (mintData && mintData.mint_nuts.includes('NUT-09')) ? 'USD' : amount === 1 ? 'Sat' : 'sats';
+        const currency = (mintData && mintData.mint_nuts && mintData.mint_nuts.includes('NUT-09')) ? 'USD' : (amount === 1 ? 'Sat' : 'sats');
 
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
