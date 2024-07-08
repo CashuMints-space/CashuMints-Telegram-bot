@@ -5,6 +5,7 @@ const path = require('path');
 const messages = require('../messages');
 const axios = require('axios');
 const Jimp = require('jimp'); // Add Jimp for image processing
+const { savePendingTokens, loadPendingTokens } = require('./dataCache');
 
 require('dotenv').config();
 
@@ -124,6 +125,16 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
 
         let tokenSpent = false;
 
+        // Save the pending token details
+        const pendingTokens = loadPendingTokens();
+        pendingTokens.push({
+            encoded: text,
+            username: username,
+            messageId: statusMessage.message_id,
+            chatId: chatId
+        });
+        savePendingTokens(pendingTokens);
+
         // Function to update the message status
         const updateMessageStatus = async () => {
             if (tokenSpent) return; // Stop updating if token is already spent
@@ -144,12 +155,12 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                             parse_mode: 'Markdown',
                             disable_web_page_preview: true,
                         });
-                    }
 
-                    await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-                        chat_id: chatId,
-                        message_id: statusMessage.message_id
-                    });
+                        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                            chat_id: chatId,
+                            message_id: statusMessage.message_id
+                        });
+                    }
 
                     // Schedule deletion of the claimed message after the specified time
                     setTimeout(() => {
@@ -160,6 +171,10 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                     deleteQRCode(qrCodePath);
                     // Clear the interval
                     clearInterval(intervalId);
+
+                    // Remove the token from pending tokens
+                    const updatedPendingTokens = loadPendingTokens().filter(token => token.encoded !== text);
+                    savePendingTokens(updatedPendingTokens);
                 }
             } catch (error) {
                 if (error.message.includes('Rate limit exceeded')) {
@@ -199,7 +214,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
 // Function to check pending tokens on startup
 async function checkPendingTokens(bot) {
     try {
-        const pendingTokens = loadPendingTokens(); // Implement loadPendingTokens to retrieve pending tokens from a persistent storage
+        const pendingTokens = loadPendingTokens();
 
         for (const token of pendingTokens) {
             const status = await checkTokenStatus(token.encoded);
@@ -224,6 +239,10 @@ async function checkPendingTokens(bot) {
                 setTimeout(() => {
                     bot.deleteMessage(chatId, messageId);
                 }, claimedDisposeTiming * 60000);
+
+                // Remove the token from pending tokens
+                const updatedPendingTokens = loadPendingTokens().filter(pendingToken => pendingToken.encoded !== token.encoded);
+                savePendingTokens(updatedPendingTokens);
             }
         }
     } catch (error) {
