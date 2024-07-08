@@ -130,7 +130,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         });
 
         // Send the status message
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, text, cashuApiUrl), {
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, text, claimLink), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
             reply_markup: {
@@ -235,24 +235,23 @@ async function checkPendingTokens(bot) {
             const status = await checkTokenStatus(token.encoded);
             if (status === 'spent') {
                 const newMessage = messages.claimedMessage(token.username);
-                const messageId = token.messageId;
-                const chatId = token.chatId;
 
+                // Update the status message
                 await bot.editMessageText(newMessage, {
-                    chat_id: chatId,
-                    message_id: messageId,
+                    chat_id: token.chatId,
+                    message_id: token.messageId,
                     parse_mode: 'Markdown',
                     disable_web_page_preview: true,
                 });
 
                 await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-                    chat_id: chatId,
-                    message_id: messageId
+                    chat_id: token.chatId,
+                    message_id: token.messageId
                 });
 
                 // Schedule deletion of the claimed message after the specified time
                 setTimeout(() => {
-                    bot.deleteMessage(chatId, messageId);
+                    bot.deleteMessage(token.chatId, token.messageId);
                 }, claimedDisposeTiming * 60000);
 
                 // Remove the token from pending tokens
