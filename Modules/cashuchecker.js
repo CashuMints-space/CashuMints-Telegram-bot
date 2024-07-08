@@ -11,6 +11,7 @@ const qrCodeDir = './qrcodes';
 const debugMode = process.env.DEBUG_MODE === 'true';
 const timeoutMinutes = parseInt(process.env.TIMEOUT_MINUTES) || 2;
 const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 5;
+const claimedDisposeTiming = parseInt(process.env.CLAIMED_DISPOSE_TIMING) || 10;
 
 if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir);
@@ -87,7 +88,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
 
         // Determine the token amount and currency
         const amount = decodedToken.token[0].proofs.reduce((sum, proof) => sum + proof.amount, 0);
-        const currency = (mintData && mintData.mint_nuts.includes('NUT-09')) ? 'USD' : 'sats';
+        const currency = (mintData && mintData.mint_nuts.includes('NUT-09')) ? 'USD' : amount === 1 ? 'Sat' : 'sats';
 
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
