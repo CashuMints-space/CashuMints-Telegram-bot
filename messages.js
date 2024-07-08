@@ -37,6 +37,7 @@ Happy Satoshi hunting! 🎉
 ${username} shared a Cashu token 🥜
 
 *Amount:* ${amount} ${currency}
+*Mint:* ${mintName}
 *Mint URL:* ${mintUrl}
 
 Click the button below to rate the mint:
