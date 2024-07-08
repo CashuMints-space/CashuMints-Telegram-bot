@@ -24,4 +24,22 @@ const loadData = (filename) => {
     return null;
 };
 
-module.exports = { saveData, loadData };
+// New functions to handle pending tokens
+const savePendingTokens = (pendingTokens) => {
+    saveData('pendingTokens.json', pendingTokens);
+};
+
+const loadPendingTokens = () => {
+    return loadData('pendingTokens.json') || [];
+};
+
+// Functions to handle mint URLs and corresponding pages
+const saveMintUrls = (mintUrls) => {
+    saveData('mintUrls.json', mintUrls);
+};
+
+const loadMintUrls = () => {
+    return loadData('mintUrls.json') || {};
+};
+
+module.exports = { saveData, loadData, savePendingTokens, loadPendingTokens, saveMintUrls, loadMintUrls };

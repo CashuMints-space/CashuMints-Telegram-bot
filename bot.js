@@ -1,7 +1,7 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const commands = require('./Modules/commands');
-const { handleMessage } = require('./Modules/cashuchecker');
+const { handleMessage, checkPendingTokens } = require('./Modules/cashuchecker');
 const messages = require('./messages');
 const { getDecodedToken } = require('@cashu/cashu-ts');
 
@@ -38,9 +38,6 @@ bot.onText(/\/help/, (msg) => {
 bot.onText(/\/cashumints top/, (msg) => commands.cashuTopMints(bot, msg));
 bot.onText(/\/cashuwallets top/, (msg) => commands.cashuTopWallets(bot, msg));
 bot.onText(/\/cashudecode/, (msg) => commands.decodeToken(bot, msg));
-bot.onText(/\/cashuencode/, (msg) => commands.encodeToken(bot, msg));
-bot.onText(/\/request mint/, (msg) => commands.requestMint(bot, msg));
-bot.onText(/\/check invoice/, (msg) => commands.checkInvoice(bot, msg));
 
 bot.on('message', async (msg) => {
     try {
@@ -50,21 +47,19 @@ bot.on('message', async (msg) => {
 
         logInfo(`Received message from ${username}: ${text}`);
 
-        if (text.startsWith('/')) {
-            logInfo(`Handling command: ${text}`);
-            return; // Commands are already handled by bot.onText()
-        }
-
-        if (text.startsWith('cashuA')) {
-            try {
-                const decodedToken = getDecodedToken(text);
-                logInfo(`Detected Cashu token from ${username}`);
-                await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
-            } catch (error) {
-                logInfo(`No valid Cashu token detected in the message from ${username}`);
-                if (msg.chat.type === 'private') {
-                    logInfo(`Sending help message to ${username}`);
-                    await bot.sendMessage(chatId, messages.helpMessage);
+        // Only respond to commands or Cashu tokens
+        if (text.startsWith('/') || text.startsWith('cashuA')) {
+            if (text.startsWith('cashuA')) {
+                try {
+                    const decodedToken = getDecodedToken(text);
+                    logInfo(`Detected Cashu token from ${username}`);
+                    await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
+                } catch (error) {
+                    logInfo(`No valid Cashu token detected in the message from ${username}`);
+                    if (msg.chat.type === 'private') {
+                        logInfo(`Sending help message to ${username}`);
+                        await bot.sendMessage(chatId, messages.helpMessage);
+                    }
                 }
             }
         } else if (msg.chat.type === 'private') {
@@ -90,5 +85,10 @@ bot.on('webhook_error', (error) => {
 bot.on('error', (error) => {
     logError('Unexpected error', error);
 });
+
+// Check pending tokens on startup
+(async () => {
+    await checkPendingTokens(bot);
+})();
 
 console.log('Bot is running...');

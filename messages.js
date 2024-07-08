@@ -19,15 +19,17 @@ Here’s how to use the CashuMints Telegram Bot:
    - /cashumints top: Show top mints.
    - /cashuwallets top: Show top wallets.
    - /cashudecode [token]: Decode a Cashu token.
-   - /cashuencode [token data]: Encode token data.
 
 If you have any questions, feel free to ask!
   `,
   errorMessage: 'Error processing your request. Please try again later.',
-  pendingMessage: (username, cashuApiUrl) => `
+  pendingMessage: (username, mintUrl, mintName, claimLink) => `
 ${username} shared a Cashu token 🥜
 
-Click here to claim to Lightning: [Claim link](${cashuApiUrl})
+Mint: ${mintName}
+Mint URL: ${mintUrl}
+
+Click here to claim to Lightning: [Claim link](${claimLink})
   `,
   claimedMessage: (username) => `
 ${username} shared a Cashu token 🥜

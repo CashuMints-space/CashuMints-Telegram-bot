@@ -3,6 +3,9 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 const messages = require('../messages');
+const axios = require('axios');
+const Jimp = require('jimp'); // Add Jimp for image processing
+const { savePendingTokens, loadPendingTokens, saveMintUrls, loadMintUrls } = require('./dataCache');
 
 require('dotenv').config();
 
@@ -10,6 +13,9 @@ const qrCodeDir = './qrcodes';
 const debugMode = process.env.DEBUG_MODE === 'true';
 const timeoutMinutes = parseInt(process.env.TIMEOUT_MINUTES) || 2;
 const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 5;
+const claimedDisposeTiming = parseInt(process.env.CLAIMED_DISPOSE_TIMING) || 10;
+
+const cashuApiUrl = process.env.CASHU_API_URL;
 
 if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir);
@@ -36,9 +42,31 @@ async function checkTokenStatus(tokenEncoded) {
 
 // Function to generate a QR code for the token
 async function generateQRCode(token) {
-    const filePath = path.join(qrCodeDir, `${Date.now()}.png`);
-    await QRCode.toFile(filePath, token);
-    return filePath;
+    const qrCodeImagePath = path.join(qrCodeDir, `${Date.now()}.png`);
+    const cashuIconPath = path.join(__dirname, '../cashu.png');
+
+    await QRCode.toFile(qrCodeImagePath, token, {
+        errorCorrectionLevel: 'H',
+        width: 300
+    });
+
+    const qrCodeImage = await Jimp.read(qrCodeImagePath);
+    const cashuIcon = await Jimp.read(cashuIconPath);
+
+    // Resize the icon to fit in the middle of the QR code but not too large
+    cashuIcon.resize(30, 30);
+    const x = (qrCodeImage.bitmap.width / 2) - (cashuIcon.bitmap.width / 2);
+    const y = (qrCodeImage.bitmap.height / 2) - (cashuIcon.bitmap.height / 2);
+
+    qrCodeImage.composite(cashuIcon, x, y, {
+        mode: Jimp.BLEND_SOURCE_OVER,
+        opacitySource: 1,
+        opacityDest: 1
+    });
+
+    await qrCodeImage.writeAsync(qrCodeImagePath);
+
+    return qrCodeImagePath;
 }
 
 // Function to delete the QR code image
@@ -46,6 +74,33 @@ function deleteQRCode(filePath) {
     fs.unlink(filePath, (err) => {
         if (err) console.error(`Error deleting file ${filePath}:`, err);
     });
+}
+
+// Function to fetch mint data from the URL
+async function fetchMintData(mintUrl) {
+    const cachedMintUrls = loadMintUrls();
+    if (cachedMintUrls[mintUrl]) {
+        return cachedMintUrls[mintUrl];
+    }
+
+    try {
+        const response = await axios.get('https://cashumints.space/wp-json/cashumints/all-cashu-mints/');
+        const mints = response.data;
+
+        // Create a map of mint URLs to mint data
+        const mintMap = mints.reduce((map, mint) => {
+            map[mint.mint_url] = mint;
+            return map;
+        }, {});
+
+        // Save the mint URLs to the cache
+        saveMintUrls(mintMap);
+
+        return mintMap[mintUrl];
+    } catch (error) {
+        console.error('Error fetching mint data:', error);
+        return null;
+    }
 }
 
 async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
@@ -64,6 +119,11 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         // Decode the token to check if it's valid
         const decodedToken = getDecodedToken(text);
 
+        // Fetch mint data
+        const mintData = await fetchMintData(decodedToken.token[0].mint);
+        const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
+        const mintLink = mintData ? `https://cashumints.space/?p=${mintData.cct_single_post_id}` : '#';
+
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
 
@@ -74,15 +134,25 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         });
 
         // Send the status message
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, cashuApiUrl), {
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, decodedToken.token[0].mint, mintName, `${cashuApiUrl}?token=${text}`), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
             reply_markup: {
-                inline_keyboard: [[{ text: messages.tokenStatusButtonPending, callback_data: 'pending' }]]
+                inline_keyboard: [[{ text: 'Rate Mint', url: mintLink }]]
             }
         });
 
         let tokenSpent = false;
+
+        // Save the pending token details
+        const pendingTokens = loadPendingTokens();
+        pendingTokens.push({
+            encoded: text,
+            username: username,
+            messageId: statusMessage.message_id,
+            chatId: chatId
+        });
+        savePendingTokens(pendingTokens);
 
         // Function to update the message status
         const updateMessageStatus = async () => {
@@ -104,6 +174,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                             parse_mode: 'Markdown',
                             disable_web_page_preview: true,
                         });
+
                         await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
                             chat_id: chatId,
                             message_id: statusMessage.message_id
@@ -119,6 +190,10 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                     deleteQRCode(qrCodePath);
                     // Clear the interval
                     clearInterval(intervalId);
+
+                    // Remove the token from pending tokens
+                    const updatedPendingTokens = loadPendingTokens().filter(token => token.encoded !== text);
+                    savePendingTokens(updatedPendingTokens);
                 }
             } catch (error) {
                 if (error.message.includes('Rate limit exceeded')) {
@@ -155,4 +230,43 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
     }
 }
 
-module.exports = { handleMessage, checkTokenStatus, generateQRCode, deleteQRCode };
+// Function to check pending tokens on startup
+async function checkPendingTokens(bot) {
+    try {
+        const pendingTokens = loadPendingTokens();
+
+        for (const token of pendingTokens) {
+            const status = await checkTokenStatus(token.encoded);
+            if (status === 'spent') {
+                const newMessage = messages.claimedMessage(token.username);
+                const messageId = token.messageId;
+                const chatId = token.chatId;
+
+                await bot.editMessageText(newMessage, {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    parse_mode: 'Markdown',
+                    disable_web_page_preview: true,
+                });
+
+                await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                    chat_id: chatId,
+                    message_id: messageId
+                });
+
+                // Schedule deletion of the claimed message after the specified time
+                setTimeout(() => {
+                    bot.deleteMessage(chatId, messageId);
+                }, claimedDisposeTiming * 60000);
+
+                // Remove the token from pending tokens
+                const updatedPendingTokens = loadPendingTokens().filter(pendingToken => pendingToken.encoded !== token.encoded);
+                savePendingTokens(updatedPendingTokens);
+            }
+        }
+    } catch (error) {
+        console.error('Error checking pending tokens on startup:', error);
+    }
+}
+
+module.exports = { handleMessage, checkTokenStatus, generateQRCode, deleteQRCode, checkPendingTokens };
