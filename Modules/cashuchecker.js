@@ -83,11 +83,11 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         // Fetch mint data
         const mintData = await fetchMintData(decodedToken.token[0].mint);
         const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
-        const mintLink = mintData ? `https://cashumints.space/cashu_mints/${mintData.cct_single_post_id}` : '#';
+        const mintLink = mintData ? `https://cashumints.space/?p=${mintData.cct_single_post_id}` : '#';
 
         // Determine the token amount and currency
         const amount = decodedToken.token[0].proofs.reduce((sum, proof) => sum + proof.amount, 0);
-        const currency = mintData && mintData.mint_nuts.includes('NUT-09') ? 'USD' : 'sats';
+        const currency = (mintData && mintData.mint_nuts.includes('NUT-09')) ? 'USD' : 'sats';
 
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
