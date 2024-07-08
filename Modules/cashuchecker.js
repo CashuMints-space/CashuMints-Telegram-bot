@@ -86,10 +86,6 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
         const mintLink = mintData ? `https://cashumints.space/?p=${mintData.cct_single_post_id}` : '#';
 
-        // Determine the token amount and currency
-        const amount = decodedToken.token[0].proofs.reduce((sum, proof) => sum + proof.amount, 0);
-        const currency = (!mintData || (mintData.mint_nuts && !mintData.mint_nuts.includes('NUT-09'))) ? (amount === 1 ? 'Sat' : 'sats') : 'USD';
-
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
 
@@ -100,7 +96,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         });
 
         // Send the status message
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, amount, currency, decodedToken.token[0].mint, mintName), {
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, decodedToken.token[0].mint, mintName), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
             reply_markup: {
