@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const messages = require('../messages');
 const axios = require('axios');
-const Jimp = require('jimp'); // Add Jimp for image processing
+const Jimp = require('jimp');
 const { savePendingTokens, loadPendingTokens, saveData, loadData } = require('./dataCache');
 
 require('dotenv').config();
@@ -20,7 +20,6 @@ if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir);
 }
 
-// Function to check if the Cashu token has been spent
 async function checkTokenStatus(tokenEncoded) {
     try {
         const token = getDecodedToken(tokenEncoded);
@@ -39,7 +38,6 @@ async function checkTokenStatus(tokenEncoded) {
     }
 }
 
-// Function to generate a QR code for the token
 async function generateQRCode(token) {
     const qrCodeImagePath = path.join(qrCodeDir, `${Date.now()}.png`);
     const cashuIconPath = path.join(__dirname, '../cashu.png');
@@ -52,7 +50,7 @@ async function generateQRCode(token) {
     const qrCodeImage = await Jimp.read(qrCodeImagePath);
     const cashuIcon = await Jimp.read(cashuIconPath);
 
-    cashuIcon.resize(80, 80); // Resize the icon to fit in the middle of the QR code
+    cashuIcon.resize(80, 80);
     const x = (qrCodeImage.bitmap.width / 2) - (cashuIcon.bitmap.width / 2);
     const y = (qrCodeImage.bitmap.height / 2) - (cashuIcon.bitmap.height / 2);
 
@@ -67,14 +65,12 @@ async function generateQRCode(token) {
     return qrCodeImagePath;
 }
 
-// Function to delete the QR code image
 function deleteQRCode(filePath) {
     fs.unlink(filePath, (err) => {
         if (err) console.error(`Error deleting file ${filePath}:`, err);
     });
 }
 
-// Function to fetch and cache mint data from the URL
 async function fetchAndCacheMintData() {
     try {
         const response = await axios.get('https://cashumints.space/wp-json/cashumints/all-cashu-mints/');
@@ -87,7 +83,6 @@ async function fetchAndCacheMintData() {
     }
 }
 
-// Function to get mint data from cache or fetch if not available
 async function getMintData(mintUrl) {
     let mints = loadData('mints.json');
     if (!mints) {
@@ -102,34 +97,26 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
 
     try {
-        // Check if the token has been spent before processing
         const status = await checkTokenStatus(text);
         if (status === 'spent') {
             if (debugMode) console.log(`[INFO] Token already spent: ${text}`);
-            return; // Do not process further if the token is already spent
+            return;
         }
 
-        // Decode the token to check if it's valid
         const decodedToken = getDecodedToken(text);
 
-        // Fetch mint data
         const mintData = await getMintData(decodedToken.token[0].mint);
         const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
         const mintLink = mintData ? `https://cashumints.space/?p=${mintData.cct_single_post_id}` : '#';
 
-        // Generate QR code
         const qrCodePath = await generateQRCode(text);
-
-        // Create claim link
         const claimLink = `${cashuApiUrl}?token=${encodeURIComponent(text)}`;
 
-        // Send the QR code message
         const qrMessage = await bot.sendPhoto(chatId, qrCodePath, {}, {
             filename: 'cashu-token.png',
             contentType: 'image/png'
         });
 
-        // Send the status message
         const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, text, claimLink), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
@@ -140,7 +127,6 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
 
         let tokenSpent = false;
 
-        // Save the pending token details
         const pendingTokens = loadPendingTokens();
         pendingTokens.push({
             encoded: text,
@@ -150,18 +136,15 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         });
         savePendingTokens(pendingTokens);
 
-        // Function to update the message status
         const updateMessageStatus = async () => {
-            if (tokenSpent) return; // Stop updating if token is already spent
+            if (tokenSpent) return;
             try {
                 const currentStatus = await checkTokenStatus(text);
                 if (currentStatus === 'spent') {
                     tokenSpent = true;
 
-                    // Delete the QR code message and update the status message
                     await bot.deleteMessage(chatId, qrMessage.message_id);
 
-                    // Avoid updating the message with the same content and markup
                     const newMessage = messages.claimedMessage(username);
                     if (newMessage !== statusMessage.text) {
                         await bot.editMessageText(newMessage, {
@@ -177,17 +160,13 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                         });
                     }
 
-                    // Schedule deletion of the claimed message after the specified time
                     setTimeout(() => {
                         bot.deleteMessage(chatId, statusMessage.message_id);
                     }, claimedDisposeTiming * 60000);
 
-                    // Delete the QR code file
                     deleteQRCode(qrCodePath);
-                    // Clear the interval
                     clearInterval(intervalId);
 
-                    // Remove the token from pending tokens
                     const updatedPendingTokens = loadPendingTokens().filter(token => token.encoded !== text);
                     savePendingTokens(updatedPendingTokens);
                 }
@@ -205,10 +184,8 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
             }
         };
 
-        // Set interval to check the token status every 5 seconds
         let intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
 
-        // Delete the original token message if it's a valid token
         await bot.deleteMessage(chatId, msg.message_id);
 
     } catch (error) {
@@ -220,13 +197,11 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
             }, timeoutMinutes * 60000);
         } else {
             console.error('Error processing message:', error);
-            // Send error message if token is invalid
             await bot.sendMessage(chatId, messages.errorMessage);
         }
     }
 }
 
-// Function to check pending tokens on startup
 async function checkPendingTokens(bot) {
     try {
         const pendingTokens = loadPendingTokens();
@@ -236,7 +211,6 @@ async function checkPendingTokens(bot) {
             if (status === 'spent') {
                 const newMessage = messages.claimedMessage(token.username);
 
-                // Update the status message
                 await bot.editMessageText(newMessage, {
                     chat_id: token.chatId,
                     message_id: token.messageId,
@@ -249,18 +223,18 @@ async function checkPendingTokens(bot) {
                     message_id: token.messageId
                 });
 
-                // Schedule deletion of the claimed message after the specified time
                 setTimeout(() => {
                     bot.deleteMessage(token.chatId, token.messageId);
                 }, claimedDisposeTiming * 60000);
 
-                // Remove the token from pending tokens
                 const updatedPendingTokens = loadPendingTokens().filter(pendingToken => pendingToken.encoded !== token.encoded);
                 savePendingTokens(updatedPendingTokens);
             }
         }
     } catch (error) {
-        console.error('Error checking pending tokens on startup:', error);
+        if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
+            console.error('Error checking pending tokens on startup:', error);
+        }
     }
 }
 
