@@ -40,21 +40,23 @@ async function checkTokenStatus(tokenEncoded) {
     }
 }
 
-// Function to generate a QR code for the token
+// Function to generate a high-resolution QR code for the token
 async function generateQRCode(token) {
     const qrCodeImagePath = path.join(qrCodeDir, `${Date.now()}.png`);
     const cashuIconPath = path.join(__dirname, '../cashu.png');
 
     await QRCode.toFile(qrCodeImagePath, token, {
         errorCorrectionLevel: 'H',
-        width: 300
+        width: 800, // Increase the width for higher resolution
+        quality: 1.0, // Set the quality to maximum
+        margin: 2
     });
 
     const qrCodeImage = await Jimp.read(qrCodeImagePath);
     const cashuIcon = await Jimp.read(cashuIconPath);
 
     // Resize the icon to fit in the middle of the QR code but not too large
-    cashuIcon.resize(30, 30);
+    cashuIcon.resize(80, 80); // Adjust the size of the logo
     const x = (qrCodeImage.bitmap.width / 2) - (cashuIcon.bitmap.width / 2);
     const y = (qrCodeImage.bitmap.height / 2) - (cashuIcon.bitmap.height / 2);
 
