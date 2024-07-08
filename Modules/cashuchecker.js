@@ -22,7 +22,7 @@ if (!fs.existsSync(qrCodeDir)) {
 
 async function checkTokenStatus(tokenEncoded) {
     try {
-        const token = getDecodedToken(tokenEncoded);
+        const token = await getDecodedToken(tokenEncoded);
         const mintUrl = token.token[0].mint;
         const proofs = token.token[0].proofs;
 
@@ -103,7 +103,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
             return;
         }
 
-        const decodedToken = getDecodedToken(text);
+        const decodedToken = await getDecodedToken(text);
 
         const mintData = await getMintData(decodedToken.token[0].mint);
         const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
