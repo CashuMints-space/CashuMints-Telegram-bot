@@ -5,7 +5,7 @@ const path = require('path');
 const messages = require('../messages');
 const axios = require('axios');
 const Jimp = require('jimp'); // Add Jimp for image processing
-const { savePendingTokens, loadPendingTokens } = require('./dataCache');
+const { savePendingTokens, loadPendingTokens, saveData, loadData } = require('./dataCache');
 
 require('dotenv').config();
 
@@ -51,11 +51,15 @@ async function generateQRCode(token) {
     const qrCodeImage = await Jimp.read(qrCodeImagePath);
     const cashuIcon = await Jimp.read(cashuIconPath);
 
-    cashuIcon.resize(50, 50); // Resize the icon to fit in the middle of the QR code
+    cashuIcon.resize(80, 80); // Resize the icon to fit in the middle of the QR code
     const x = (qrCodeImage.bitmap.width / 2) - (cashuIcon.bitmap.width / 2);
     const y = (qrCodeImage.bitmap.height / 2) - (cashuIcon.bitmap.height / 2);
 
-    qrCodeImage.composite(cashuIcon, x, y);
+    qrCodeImage.composite(cashuIcon, x, y, {
+        mode: Jimp.BLEND_SOURCE_OVER,
+        opacitySource: 1,
+        opacityDest: 1
+    });
 
     await qrCodeImage.writeAsync(qrCodeImagePath);
 
@@ -69,19 +73,26 @@ function deleteQRCode(filePath) {
     });
 }
 
-// Function to fetch mint data from the URL
-async function fetchMintData(mintUrl) {
+// Function to fetch and cache mint data from the URL
+async function fetchAndCacheMintData() {
     try {
         const response = await axios.get('https://cashumints.space/wp-json/cashumints/all-cashu-mints/');
         const mints = response.data;
-
-        // Find the mint with the corresponding URL
-        const mint = mints.find(m => m.mint_url === mintUrl);
-        return mint;
+        saveData('mints.json', mints);
+        return mints;
     } catch (error) {
         console.error('Error fetching mint data:', error);
         return null;
     }
+}
+
+// Function to get mint data from cache or fetch if not available
+async function getMintData(mintUrl) {
+    let mints = loadData('mints.json');
+    if (!mints) {
+        mints = await fetchAndCacheMintData();
+    }
+    return mints.find(mint => mint.mint_url === mintUrl);
 }
 
 async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
@@ -101,7 +112,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         const decodedToken = getDecodedToken(text);
 
         // Fetch mint data
-        const mintData = await fetchMintData(decodedToken.token[0].mint);
+        const mintData = await getMintData(decodedToken.token[0].mint);
         const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
         const mintLink = mintData ? `https://cashumints.space/?p=${mintData.cct_single_post_id}` : '#';
 
