@@ -23,10 +23,10 @@ Here’s how to use the CashuMints Telegram Bot:
 If you have any questions, feel free to ask!
   `,
   errorMessage: 'Error processing your request. Please try again later.',
-  pendingMessage: (username, token, cashuApiUrl) => `
+  pendingMessage: (username, token, claimLink) => `
 ${username} shared a Cashu token 🥜
 
-Click here to claim to Lightning: [Claim link](${cashuApiUrl}?token=${encodeURIComponent(token)})
+Click here to claim to Lightning: [Claim link](${claimLink})
   `,
   claimedMessage: (username) => `
 ${username} shared a Cashu token 🥜
