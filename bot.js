@@ -47,12 +47,12 @@ bot.on('message', async (msg) => {
 
         logInfo(`Received message from ${username}: ${text}`);
 
-        if (text.startsWith('/')) {
+        if (text && text.startsWith('/')) {
             logInfo(`Handling command: ${text}`);
             return; // Commands are already handled by bot.onText()
         }
 
-        if (text.startsWith('cashuA')) {
+        if (text && text.startsWith('cashuA')) {
             try {
                 const decodedToken = getDecodedToken(text);
                 logInfo(`Detected Cashu token from ${username}`);
