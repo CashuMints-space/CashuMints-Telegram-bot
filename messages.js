@@ -39,8 +39,6 @@ ${username} shared a Cashu token 🥜
 *Amount:* ${amount} ${currency}
 *Mint:* ${mintName}
 *Mint URL:* ${mintUrl}
-
-Click the button below to rate the mint:
   `,
   claimedMessage: (username) => `
 ${username} shared a Cashu token 🥜
