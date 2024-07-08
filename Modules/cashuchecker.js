@@ -3,6 +3,7 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 const messages = require('../messages');
+const axios = require('axios');
 
 require('dotenv').config();
 
@@ -48,6 +49,21 @@ function deleteQRCode(filePath) {
     });
 }
 
+// Function to fetch mint data from the URL
+async function fetchMintData(mintUrl) {
+    try {
+        const response = await axios.get('https://cashumints.space/wp-json/cashumints/all-cashu-mints/');
+        const mints = response.data;
+
+        // Find the mint with the corresponding URL
+        const mint = mints.find(m => m.mint_url === mintUrl);
+        return mint;
+    } catch (error) {
+        console.error('Error fetching mint data:', error);
+        return null;
+    }
+}
+
 async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
     const chatId = msg.chat.id;
     const text = msg.text;
@@ -64,6 +80,15 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         // Decode the token to check if it's valid
         const decodedToken = getDecodedToken(text);
 
+        // Fetch mint data
+        const mintData = await fetchMintData(decodedToken.token[0].mint);
+        const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
+        const mintLink = mintData ? `https://cashumints.space/cashu_mints/${mintData.cct_single_post_id}` : '#';
+
+        // Determine the token amount and currency
+        const amount = decodedToken.token[0].proofs.reduce((sum, proof) => sum + proof.amount, 0);
+        const currency = mintData.mint_nuts.includes('NUT-09') ? 'USD' : 'sats';
+
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
 
@@ -74,11 +99,11 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         });
 
         // Send the status message
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, cashuApiUrl), {
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, amount, currency, decodedToken.token[0].mint, mintName), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
             reply_markup: {
-                inline_keyboard: [[{ text: messages.tokenStatusButtonPending, callback_data: 'pending' }]]
+                inline_keyboard: [[{ text: 'Rate Mint', url: mintLink }]]
             }
         });
 
