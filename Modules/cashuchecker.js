@@ -202,40 +202,4 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
     }
 }
 
-async function checkPendingTokens(bot) {
-    try {
-        const pendingTokens = loadPendingTokens();
-
-        for (const token of pendingTokens) {
-            const status = await checkTokenStatus(token.encoded);
-            if (status === 'spent') {
-                const newMessage = messages.claimedMessage(token.username);
-
-                await bot.editMessageText(newMessage, {
-                    chat_id: token.chatId,
-                    message_id: token.messageId,
-                    parse_mode: 'Markdown',
-                    disable_web_page_preview: true,
-                });
-
-                await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-                    chat_id: token.chatId,
-                    message_id: token.messageId
-                });
-
-                setTimeout(() => {
-                    bot.deleteMessage(token.chatId, token.messageId);
-                }, claimedDisposeTiming * 60000);
-
-                const updatedPendingTokens = loadPendingTokens().filter(pendingToken => pendingToken.encoded !== token.encoded);
-                savePendingTokens(updatedPendingTokens);
-            }
-        }
-    } catch (error) {
-        if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
-            console.error('Error checking pending tokens on startup:', error);
-        }
-    }
-}
-
-module.exports = { handleMessage, checkTokenStatus, generateQRCode, deleteQRCode, checkPendingTokens };
+module.exports = { handleMessage, checkTokenStatus, generateQRCode, deleteQRCode };
