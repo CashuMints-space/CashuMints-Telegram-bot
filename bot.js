@@ -25,22 +25,19 @@ bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     logInfo(`${username} started the bot.`);
-    bot.sendMessage(chatId, messages.startMessage);
+    bot.sendMessage(chatId, messages.startMessage, { parse_mode: 'Markdown' });
 });
 
 bot.onText(/\/help/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
     logInfo(`${username} requested help.`);
-    bot.sendMessage(chatId, messages.helpMessage);
+    bot.sendMessage(chatId, messages.helpMessage, { parse_mode: 'Markdown' });
 });
 
 bot.onText(/\/cashumints top/, (msg) => commands.cashuTopMints(bot, msg));
 bot.onText(/\/cashuwallets top/, (msg) => commands.cashuTopWallets(bot, msg));
 bot.onText(/\/cashudecode/, (msg) => commands.decodeToken(bot, msg));
-bot.onText(/\/cashuencode/, (msg) => commands.encodeToken(bot, msg));
-bot.onText(/\/request mint/, (msg) => commands.requestMint(bot, msg));
-bot.onText(/\/check invoice/, (msg) => commands.checkInvoice(bot, msg));
 
 bot.on('message', async (msg) => {
     try {
@@ -64,12 +61,12 @@ bot.on('message', async (msg) => {
                 logInfo(`No valid Cashu token detected in the message from ${username}`);
                 if (msg.chat.type === 'private') {
                     logInfo(`Sending help message to ${username}`);
-                    await bot.sendMessage(chatId, messages.helpMessage);
+                    await bot.sendMessage(chatId, messages.helpMessage, { parse_mode: 'Markdown' });
                 }
             }
         } else if (msg.chat.type === 'private') {
             logInfo(`No valid Cashu token and not a command. Sending help message to ${username}`);
-            await bot.sendMessage(chatId, messages.helpMessage);
+            await bot.sendMessage(chatId, messages.helpMessage, { parse_mode: 'Markdown' });
         }
     } catch (error) {
         logError('Error handling message', error);
