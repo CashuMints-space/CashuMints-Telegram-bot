@@ -33,10 +33,9 @@ If you have any questions, feel free to ask!
 Happy Satoshi hunting! 🎉
   `,
   errorMessage: '🚫 Error processing your request. Please try again later.',
-  pendingMessage: (username, amount, currency, mintUrl, mintName) => `
+  pendingMessage: (username, mintUrl, mintName) => `
 ${username} shared a Cashu token 🥜
 
-*Amount:* ${amount} ${currency}
 *Mint:* ${mintName}
 *Mint URL:* ${mintUrl}
   `,
