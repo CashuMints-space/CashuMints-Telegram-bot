@@ -1,6 +1,8 @@
 module.exports = {
   startMessage: `
-Welcome to the CashuMints Telegram Bot! Here's how to get started:
+🚀 *Welcome to the CashuMints Telegram Bot!* 🚀
+
+Here's how to get started:
 
 1. **Using the Bot in Private Chat:**
    - Send me a Cashu token, and I’ll provide you with a QR code and the status of the token.
@@ -9,21 +11,28 @@ Welcome to the CashuMints Telegram Bot! Here's how to get started:
    - Add me to a group and give me admin permissions with only the 'Remove Messages' permission enabled.
    - I only need this permission to remove Cashu tokens after processing them to keep the chat clean and tidy.
 
-Happy Satoshi hunting!
+Happy Satoshi hunting! 🎉
   `,
   helpMessage: `
-Here’s how to use the CashuMints Telegram Bot:
+ℹ️ *CashuMints Telegram Bot Help* ℹ️
+
+Here's how to use the CashuMints Telegram Bot:
 
 1. **Send a Cashu token:** If you send me a Cashu token, I’ll generate a QR code and check its status.
 2. **Commands:**
    - /cashumints top: Show top mints.
    - /cashuwallets top: Show top wallets.
    - /cashudecode [token]: Decode a Cashu token.
-   - /cashuencode [token data]: Encode token data.
 
 If you have any questions, feel free to ask!
+
+🔍 *Quick Tips:*
+- Ensure your token starts with 'cashuA' to be recognized as a valid Cashu token.
+- Use /start to see the welcome message again.
+
+Happy Satoshi hunting! 🎉
   `,
-  errorMessage: 'Error processing your request. Please try again later.',
+  errorMessage: '🚫 Error processing your request. Please try again later.',
   pendingMessage: (username, cashuApiUrl) => `
 ${username} shared a Cashu token 🥜
 
