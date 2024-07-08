@@ -88,7 +88,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
 
         // Determine the token amount and currency
         const amount = decodedToken.token[0].proofs.reduce((sum, proof) => sum + proof.amount, 0);
-        const currency = (mintData && mintData.mint_nuts && mintData.mint_nuts.includes('NUT-09')) ? 'USD' : (amount === 1 ? 'Sat' : 'sats');
+        const currency = (!mintData || (mintData.mint_nuts && !mintData.mint_nuts.includes('NUT-09'))) ? (amount === 1 ? 'Sat' : 'sats') : 'USD';
 
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
@@ -130,11 +130,12 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                             parse_mode: 'Markdown',
                             disable_web_page_preview: true,
                         });
-                        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-                            chat_id: chatId,
-                            message_id: statusMessage.message_id
-                        });
                     }
+
+                    await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                        chat_id: chatId,
+                        message_id: statusMessage.message_id
+                    });
 
                     // Schedule deletion of the claimed message after the specified time
                     setTimeout(() => {
