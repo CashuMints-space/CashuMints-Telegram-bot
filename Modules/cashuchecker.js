@@ -14,6 +14,7 @@ const debugMode = process.env.DEBUG_MODE === 'true';
 const timeoutMinutes = parseInt(process.env.TIMEOUT_MINUTES) || 2;
 const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 5;
 const claimedDisposeTiming = parseInt(process.env.CLAIMED_DISPOSE_TIMING) || 10;
+const cashuApiUrl = process.env.CASHU_API_URL;
 
 if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir);
@@ -119,6 +120,9 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
 
+        // Create claim link
+        const claimLink = `${cashuApiUrl}?token=${encodeURIComponent(text)}`;
+
         // Send the QR code message
         const qrMessage = await bot.sendPhoto(chatId, qrCodePath, {}, {
             filename: 'cashu-token.png',
@@ -126,7 +130,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         });
 
         // Send the status message
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, decodedToken.token[0].mint, mintName), {
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, decodedToken.token[0].mint, mintName, claimLink), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
             reply_markup: {
