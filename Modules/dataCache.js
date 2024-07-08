@@ -33,4 +33,13 @@ const loadPendingTokens = () => {
     return loadData('pendingTokens.json') || [];
 };
 
-module.exports = { saveData, loadData, savePendingTokens, loadPendingTokens };
+// Functions to handle mint URLs and corresponding pages
+const saveMintUrls = (mintUrls) => {
+    saveData('mintUrls.json', mintUrls);
+};
+
+const loadMintUrls = () => {
+    return loadData('mintUrls.json') || {};
+};
+
+module.exports = { saveData, loadData, savePendingTokens, loadPendingTokens, saveMintUrls, loadMintUrls };
