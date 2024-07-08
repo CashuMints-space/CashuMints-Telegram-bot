@@ -33,10 +33,13 @@ If you have any questions, feel free to ask!
 Happy Satoshi hunting! 🎉
   `,
   errorMessage: '🚫 Error processing your request. Please try again later.',
-  pendingMessage: (username, cashuApiUrl) => `
+  pendingMessage: (username, amount, currency, mintUrl, mintName) => `
 ${username} shared a Cashu token 🥜
 
-Click here to claim to Lightning: [Claim link](${cashuApiUrl})
+*Amount:* ${amount} ${currency}
+*Mint URL:* ${mintUrl}
+
+Click the button below to rate the mint:
   `,
   claimedMessage: (username) => `
 ${username} shared a Cashu token 🥜
