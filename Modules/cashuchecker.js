@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const messages = require('../messages');
 const axios = require('axios');
+const Jimp = require('jimp'); // Add Jimp for image processing
 
 require('dotenv').config();
 
@@ -38,9 +39,26 @@ async function checkTokenStatus(tokenEncoded) {
 
 // Function to generate a QR code for the token
 async function generateQRCode(token) {
-    const filePath = path.join(qrCodeDir, `${Date.now()}.png`);
-    await QRCode.toFile(filePath, token);
-    return filePath;
+    const qrCodeImagePath = path.join(qrCodeDir, `${Date.now()}.png`);
+    const cashuIconPath = path.join(__dirname, '../cashu.png');
+
+    await QRCode.toFile(qrCodeImagePath, token, {
+        errorCorrectionLevel: 'H',
+        width: 300
+    });
+
+    const qrCodeImage = await Jimp.read(qrCodeImagePath);
+    const cashuIcon = await Jimp.read(cashuIconPath);
+
+    cashuIcon.resize(50, 50); // Resize the icon to fit in the middle of the QR code
+    const x = (qrCodeImage.bitmap.width / 2) - (cashuIcon.bitmap.width / 2);
+    const y = (qrCodeImage.bitmap.height / 2) - (cashuIcon.bitmap.height / 2);
+
+    qrCodeImage.composite(cashuIcon, x, y);
+
+    await qrCodeImage.writeAsync(qrCodeImagePath);
+
+    return qrCodeImagePath;
 }
 
 // Function to delete the QR code image
@@ -178,4 +196,39 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
     }
 }
 
-module.exports = { handleMessage, checkTokenStatus, generateQRCode, deleteQRCode };
+// Function to check pending tokens on startup
+async function checkPendingTokens(bot) {
+    try {
+        const pendingTokens = loadPendingTokens(); // Implement loadPendingTokens to retrieve pending tokens from a persistent storage
+
+        for (const token of pendingTokens) {
+            const status = await checkTokenStatus(token.encoded);
+            if (status === 'spent') {
+                const newMessage = messages.claimedMessage(token.username);
+                const messageId = token.messageId;
+                const chatId = token.chatId;
+
+                await bot.editMessageText(newMessage, {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    parse_mode: 'Markdown',
+                    disable_web_page_preview: true,
+                });
+
+                await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                    chat_id: chatId,
+                    message_id: messageId
+                });
+
+                // Schedule deletion of the claimed message after the specified time
+                setTimeout(() => {
+                    bot.deleteMessage(chatId, messageId);
+                }, claimedDisposeTiming * 60000);
+            }
+        }
+    } catch (error) {
+        console.error('Error checking pending tokens on startup:', error);
+    }
+}
+
+module.exports = { handleMessage, checkTokenStatus, generateQRCode, deleteQRCode, checkPendingTokens };
