@@ -24,4 +24,13 @@ const loadData = (filename) => {
     return null;
 };
 
-module.exports = { saveData, loadData };
+// New functions to handle pending tokens
+const savePendingTokens = (pendingTokens) => {
+    saveData('pendingTokens.json', pendingTokens);
+};
+
+const loadPendingTokens = () => {
+    return loadData('pendingTokens.json') || [];
+};
+
+module.exports = { saveData, loadData, savePendingTokens, loadPendingTokens };
