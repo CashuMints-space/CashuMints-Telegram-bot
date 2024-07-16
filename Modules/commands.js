@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { CashuMint, CashuWallet, getEncodedToken } = require('@cashu/cashu-ts');
 const messages = require('../messages');
+const { getTopMints } = require('./cashumints');
 const { saveData, loadData } = require('./dataCache');
 require('dotenv').config();
 const logger = require('../logger');
@@ -25,7 +26,7 @@ const fetchData = async (url, cacheFilename) => {
 };
 
 const formatMintMessage = (mint) => {
-    return `*Mint Name:* ${mint.post_title}\n*Mint URL:* ${mint.guid}\n*Likes:* ${mint.likes || 0}`;
+    return `*Mint Name:* [${mint.post_title}](${mint.guid})\n*Post Date:* ${mint.post_date}\n*Likes:* ${mint.comment_count}`;
 };
 
 const commands = {
@@ -34,43 +35,20 @@ const commands = {
         const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
         logger.info(`${username} requested top mints.`);
 
-        const mints = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/', 'mints.json');
+        const mints = await getTopMints();
         if (mints) {
-            const topMints = mints.slice(0, 4);
-            logger.debug(`Top 4 mints: ${JSON.stringify(topMints)}`);
-            topMints.forEach(mint => {
-                bot.sendMessage(chatId, formatMintMessage(mint), {
-                    parse_mode: 'Markdown',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: 'More info', url: mint.guid }]
-                        ]
-                    }
-                });
-            });
-        } else {
-            bot.sendMessage(chatId, messages.errorMessage);
-        }
-    },
+            const topMints = mints.slice(0, 5);
+            const formattedMints = topMints.map(formatMintMessage).join('\n\n');
+            const message = `*Top 5 Cashu Mints:*\n\n${formattedMints}`;
+            const inlineKeyboard = topMints.map((mint, index) => [
+                { text: `Mint ${index + 1}`, callback_data: `mint_${index}` }
+            ]);
 
-    cashuTopWallets: async (bot, msg) => {
-        const chatId = msg.chat.id;
-        const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-        logger.info(`${username} requested top wallets.`);
-
-        const wallets = await fetchData('https://cashumints.space/wp-json/public/top-liked-public/', 'wallets.json');
-        if (wallets) {
-            const topWallets = wallets.slice(0, 4);
-            logger.debug(`Top 4 wallets: ${JSON.stringify(topWallets)}`);
-            topWallets.forEach(wallet => {
-                bot.sendMessage(chatId, formatMintMessage(wallet), {
-                    parse_mode: 'Markdown',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: 'More info', url: wallet.guid }]
-                        ]
-                    }
-                });
+            await bot.sendMessage(chatId, message, {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: inlineKeyboard
+                }
             });
         } else {
             bot.sendMessage(chatId, messages.errorMessage);
