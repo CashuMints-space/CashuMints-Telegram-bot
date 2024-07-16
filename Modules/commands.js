@@ -26,29 +26,25 @@ const fetchData = async (url, cacheFilename) => {
 };
 
 const formatMintMessage = (mint) => {
-    return `*Mint Name:* [${mint.post_title}](${mint.guid})\n*Post Date:* ${mint.post_date}\n*Likes:* ${mint.comment_count}`;
+    return `*Mint Name:* [${mint.post_title}](${mint.guid})\n*Likes:* ${mint.likes}\n*Dislikes:* ${mint.dislikes}`;
 };
 
 const commands = {
     cashuTopMints: async (bot, msg) => {
         const chatId = msg.chat.id;
         const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-        logger.info(`${username} requested top mints.`);
+        if (process.env.DEBUG_MODE === 'true') {
+            logger.info(`${username} requested top mints.`);
+        }
 
         const mints = await getTopMints();
         if (mints) {
             const topMints = mints.slice(0, 5);
             const formattedMints = topMints.map(formatMintMessage).join('\n\n');
             const message = `*Top 5 Cashu Mints:*\n\n${formattedMints}`;
-            const inlineKeyboard = topMints.map((mint, index) => [
-                { text: `Mint ${index + 1}`, callback_data: `mint_${index}` }
-            ]);
 
             await bot.sendMessage(chatId, message, {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: inlineKeyboard
-                }
+                parse_mode: 'Markdown'
             });
         } else {
             bot.sendMessage(chatId, messages.errorMessage);
@@ -58,7 +54,9 @@ const commands = {
     decodeToken: async (bot, msg) => {
         const chatId = msg.chat.id;
         const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-        logger.info(`${username} requested to decode a token.`);
+        if (process.env.DEBUG_MODE === 'true') {
+            logger.info(`${username} requested to decode a token.`);
+        }
 
         const token = msg.text.split(' ')[1]; // Extract the token from the command
         if (!token) {
@@ -67,7 +65,9 @@ const commands = {
         }
         try {
             const decoded = wallet.decodeToken(token);
-            logger.debug(`Token decoded: ${JSON.stringify(decoded, null, 2)}`);
+            if (process.env.DEBUG_MODE === 'true') {
+                logger.debug(`Token decoded: ${JSON.stringify(decoded, null, 2)}`);
+            }
             bot.sendMessage(chatId, `Decoded Token: ${JSON.stringify(decoded, null, 2)}`);
         } catch (error) {
             logger.error('Error decoding token:', error);
@@ -78,14 +78,18 @@ const commands = {
     help: (bot, msg) => {
         const chatId = msg.chat.id;
         const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-        logger.info(`${username} requested help.`);
+        if (process.env.DEBUG_MODE === 'true') {
+            logger.info(`${username} requested help.`);
+        }
         bot.sendMessage(chatId, messages.helpMessage, { parse_mode: 'Markdown' });
     },
 
     start: (bot, msg) => {
         const chatId = msg.chat.id;
         const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-        logger.info(`${username} started the bot.`);
+        if (process.env.DEBUG_MODE === 'true') {
+            logger.info(`${username} started the bot.`);
+        }
         bot.sendMessage(chatId, messages.startMessage, { parse_mode: 'Markdown' });
     }
 };
