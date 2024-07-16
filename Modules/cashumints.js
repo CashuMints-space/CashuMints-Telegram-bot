@@ -19,7 +19,9 @@ const fetchAndCacheData = async (url, cacheFilename) => {
 };
 
 const getTopMints = async () => {
-    return await fetchAndCacheData('https://cashumints.space/wp-json/public/top-liked-public/', 'top_mints.json');
+    const url = 'https://cashumints.space/wp-json/public/top-liked-public/';
+    const cacheFilename = 'top_mints.json';
+    return await fetchAndCacheData(url, cacheFilename);
 };
 
 module.exports = { getTopMints };
