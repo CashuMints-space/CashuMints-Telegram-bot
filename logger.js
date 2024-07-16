@@ -1,7 +1,18 @@
 const winston = require('winston');
+require('dotenv').config();
+
+const debugMode = process.env.DEBUG_MODE === 'true';
+
+const transports = [
+  new winston.transports.Console()
+];
+
+if (debugMode) {
+  transports.push(new winston.transports.File({ filename: 'bot.log' }));
+}
 
 const logger = winston.createLogger({
-  level: 'info',
+  level: debugMode ? 'info' : 'warn',
   format: winston.format.combine(
     winston.format.colorize(),
     winston.format.timestamp(),
@@ -9,10 +20,7 @@ const logger = winston.createLogger({
       return `${timestamp} ${level}: ${message}`;
     })
   ),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: 'bot.log' })
-  ]
+  transports
 });
 
 module.exports = logger;
