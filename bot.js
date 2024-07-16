@@ -56,7 +56,7 @@ bot.on('message', async (msg) => {
                     if (process.env.DEBUG_MODE === 'true') {
                         logger.info(`No valid Cashu token detected in the message from ${username}`);
                     }
-                    if (msg.chat.type === 'private') {
+                    if (msg.chat.type === 'private' || msg.chat.type === 'group' || msg.chat.type === 'supergroup') {
                         if (process.env.DEBUG_MODE === 'true') {
                             logger.info(`Sending help message to ${username}`);
                         }
