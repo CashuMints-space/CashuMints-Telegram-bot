@@ -135,7 +135,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         });
 
         // Send the status message
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, mintName, `${cashuApiUrl}?token=${text}`), {
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, mintName, mintLink, `${cashuApiUrl}?token=${text}`), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
             reply_markup: {
