@@ -25,7 +25,7 @@ bot.onText(/\/help/, (msg) => {
     bot.sendMessage(chatId, messages.helpMessage);
 });
 
-bot.onText(/\/cashumints top/, (msg) => commands.cashuTopMints(bot, msg));
+bot.onText(/\/cashumints/, (msg) => commands.cashuTopMints(bot, msg));
 bot.onText(/\/cashuwallets top/, (msg) => commands.cashuTopWallets(bot, msg));
 bot.onText(/\/cashudecode/, (msg) => commands.decodeToken(bot, msg));
 
@@ -80,5 +80,32 @@ bot.on('error', (error) => {
 (async () => {
     await checkPendingTokens(bot);
 })();
+
+bot.on('callback_query', async (callbackQuery) => {
+    const { data, message } = callbackQuery;
+    const chatId = message.chat.id;
+
+    if (data.startsWith('mint_')) {
+        const index = parseInt(data.split('_')[1], 10);
+        const mints = await getTopMints();
+
+        if (mints && mints[index]) {
+            const mint = mints[index];
+            const messageText = formatMintMessage(mint);
+            const inlineKeyboard = mints.map((mint, idx) => [
+                { text: `Mint ${idx + 1}`, callback_data: `mint_${idx}` }
+            ]);
+
+            await bot.editMessageText(messageText, {
+                chat_id: chatId,
+                message_id: message.message_id,
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: inlineKeyboard
+                }
+            });
+        }
+    }
+});
 
 logger.info('Bot is running...');
