@@ -14,14 +14,18 @@ const checkIntervalSeconds = parseInt(process.env.CHECK_INTERVAL_SECONDS) || 5;
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-    logger.info(`${username} started the bot.`);
+    if (process.env.DEBUG_MODE === 'true') {
+        logger.info(`${username} started the bot.`);
+    }
     bot.sendMessage(chatId, messages.startMessage);
 });
 
 bot.onText(/\/help/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
-    logger.info(`${username} requested help.`);
+    if (process.env.DEBUG_MODE === 'true') {
+        logger.info(`${username} requested help.`);
+    }
     bot.sendMessage(chatId, messages.helpMessage);
 });
 
@@ -35,25 +39,35 @@ bot.on('message', async (msg) => {
         const text = msg.text;
         const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
 
-        logger.info(`Received message from ${username}: ${text}`);
+        if (process.env.DEBUG_MODE === 'true') {
+            logger.info(`Received message from ${username}: ${text}`);
+        }
 
         // Only respond to commands or Cashu tokens
         if (text.startsWith('/') || text.startsWith('cashuA')) {
             if (text.startsWith('cashuA')) {
                 try {
                     const decodedToken = getDecodedToken(text);
-                    logger.info(`Detected Cashu token from ${username}`);
+                    if (process.env.DEBUG_MODE === 'true') {
+                        logger.info(`Detected Cashu token from ${username}`);
+                    }
                     await handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
                 } catch (error) {
-                    logger.info(`No valid Cashu token detected in the message from ${username}`);
+                    if (process.env.DEBUG_MODE === 'true') {
+                        logger.info(`No valid Cashu token detected in the message from ${username}`);
+                    }
                     if (msg.chat.type === 'private') {
-                        logger.info(`Sending help message to ${username}`);
+                        if (process.env.DEBUG_MODE === 'true') {
+                            logger.info(`Sending help message to ${username}`);
+                        }
                         await bot.sendMessage(chatId, messages.helpMessage);
                     }
                 }
             }
         } else if (msg.chat.type === 'private') {
-            logger.info(`No valid Cashu token and not a command. Sending help message to ${username}`);
+            if (process.env.DEBUG_MODE === 'true') {
+                logger.info(`No valid Cashu token and not a command. Sending help message to ${username}`);
+            }
             await bot.sendMessage(chatId, messages.helpMessage);
         }
     } catch (error) {
@@ -80,32 +94,5 @@ bot.on('error', (error) => {
 (async () => {
     await checkPendingTokens(bot);
 })();
-
-bot.on('callback_query', async (callbackQuery) => {
-    const { data, message } = callbackQuery;
-    const chatId = message.chat.id;
-
-    if (data.startsWith('mint_')) {
-        const index = parseInt(data.split('_')[1], 10);
-        const mints = await getTopMints();
-
-        if (mints && mints[index]) {
-            const mint = mints[index];
-            const messageText = formatMintMessage(mint);
-            const inlineKeyboard = mints.map((mint, idx) => [
-                { text: `Mint ${idx + 1}`, callback_data: `mint_${idx}` }
-            ]);
-
-            await bot.editMessageText(messageText, {
-                chat_id: chatId,
-                message_id: message.message_id,
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: inlineKeyboard
-                }
-            });
-        }
-    }
-});
 
 logger.info('Bot is running...');
