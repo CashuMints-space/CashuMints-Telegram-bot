@@ -41,21 +41,21 @@ async function checkTokenStatus(tokenEncoded) {
     }
 }
 
-// Function to generate a QR code for the token
+// Function to generate a high-quality QR code for the token
 async function generateQRCode(token) {
     const qrCodeImagePath = path.join(qrCodeDir, `${Date.now()}.png`);
     const cashuIconPath = path.join(__dirname, '../cashu.png');
 
     await QRCode.toFile(qrCodeImagePath, token, {
         errorCorrectionLevel: 'H',
-        width: 300
+        width: 1920
     });
 
     const qrCodeImage = await Jimp.read(qrCodeImagePath);
     const cashuIcon = await Jimp.read(cashuIconPath);
 
     // Resize the icon to fit in the middle of the QR code but not too large
-    cashuIcon.resize(30, 30);
+    cashuIcon.resize(120, 120);
     const x = (qrCodeImage.bitmap.width / 2) - (cashuIcon.bitmap.width / 2);
     const y = (qrCodeImage.bitmap.height / 2) - (cashuIcon.bitmap.height / 2);
 
@@ -125,7 +125,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
         const mintLink = mintData ? `https://cashumints.space/?p=${mintData.cct_single_post_id}` : '#';
 
-        // Generate QR code
+        // Generate high-quality QR code
         const qrCodePath = await generateQRCode(text);
 
         // Send the QR code message
