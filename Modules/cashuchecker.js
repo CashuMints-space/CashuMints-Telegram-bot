@@ -6,6 +6,7 @@ const messages = require('../messages');
 const axios = require('axios');
 const Jimp = require('jimp'); // Add Jimp for image processing
 const { savePendingTokens, loadPendingTokens, saveMintUrls, loadMintUrls } = require('./dataCache');
+const logger = require('../logger');
 
 require('dotenv').config();
 
@@ -35,26 +36,26 @@ async function checkTokenStatus(tokenEncoded) {
         const spentProofs = await wallet.checkProofsSpent(proofs);
         return spentProofs.length === proofs.length ? 'spent' : 'pending';
     } catch (error) {
-        console.error('Error checking token:', error);
+        logger.error('Error checking token:', error);
         throw error;
     }
 }
 
-// Function to generate a QR code for the token
+// Function to generate a high-quality QR code for the token
 async function generateQRCode(token) {
     const qrCodeImagePath = path.join(qrCodeDir, `${Date.now()}.png`);
     const cashuIconPath = path.join(__dirname, '../cashu.png');
 
     await QRCode.toFile(qrCodeImagePath, token, {
         errorCorrectionLevel: 'H',
-        width: 300
+        width: 1920
     });
 
     const qrCodeImage = await Jimp.read(qrCodeImagePath);
     const cashuIcon = await Jimp.read(cashuIconPath);
 
     // Resize the icon to fit in the middle of the QR code but not too large
-    cashuIcon.resize(30, 30);
+    cashuIcon.resize(120, 120);
     const x = (qrCodeImage.bitmap.width / 2) - (cashuIcon.bitmap.width / 2);
     const y = (qrCodeImage.bitmap.height / 2) - (cashuIcon.bitmap.height / 2);
 
@@ -72,7 +73,7 @@ async function generateQRCode(token) {
 // Function to delete the QR code image
 function deleteQRCode(filePath) {
     fs.unlink(filePath, (err) => {
-        if (err) console.error(`Error deleting file ${filePath}:`, err);
+        if (err) logger.error(`Error deleting file ${filePath}:`, err);
     });
 }
 
@@ -98,7 +99,7 @@ async function fetchMintData(mintUrl) {
 
         return mintMap[mintUrl];
     } catch (error) {
-        console.error('Error fetching mint data:', error);
+        logger.error('Error fetching mint data:', error);
         return null;
     }
 }
@@ -112,7 +113,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         // Check if the token has been spent before processing
         const status = await checkTokenStatus(text);
         if (status === 'spent') {
-            if (debugMode) console.log(`[INFO] Token already spent: ${text}`);
+            if (debugMode) logger.info(`Token already spent: ${text}`);
             return; // Do not process further if the token is already spent
         }
 
@@ -124,7 +125,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         const mintName = mintData ? mintData.mint_name : 'Unknown Mint';
         const mintLink = mintData ? `https://cashumints.space/?p=${mintData.cct_single_post_id}` : '#';
 
-        // Generate QR code
+        // Generate high-quality QR code
         const qrCodePath = await generateQRCode(text);
 
         // Send the QR code message
@@ -134,7 +135,7 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
         });
 
         // Send the status message
-        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, decodedToken.token[0].mint, mintName, `${cashuApiUrl}?token=${text}`), {
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, mintName, mintLink, `${cashuApiUrl}?token=${text}`), {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
             reply_markup: {
@@ -197,14 +198,14 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
                 }
             } catch (error) {
                 if (error.message.includes('Rate limit exceeded')) {
-                    console.error('Rate limit exceeded. Pausing updates for this message.');
+                    logger.error('Rate limit exceeded. Pausing updates for this message.');
                     clearInterval(intervalId);
                     setTimeout(() => {
-                        console.log('Resuming updates after timeout.');
+                        logger.info('Resuming updates after timeout.');
                         intervalId = setInterval(updateMessageStatus, checkIntervalSeconds * 1000);
                     }, timeoutMinutes * 60000);
                 } else if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
-                    console.error('Error updating message status:', error);
+                    logger.error('Error updating message status:', error);
                 }
             }
         };
@@ -217,13 +218,13 @@ async function handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming) {
 
     } catch (error) {
         if (error.message.includes('Timeout pinging that mint')) {
-            console.error('Timeout occurred while pinging the mint:', error);
+            logger.error('Timeout occurred while pinging the mint:', error);
             setTimeout(() => {
-                console.log('Resuming processing after timeout.');
+                logger.info('Resuming processing after timeout.');
                 handleMessage(bot, msg, cashuApiUrl, claimedDisposeTiming);
             }, timeoutMinutes * 60000);
         } else {
-            console.error('Error processing message:', error);
+            logger.error('Error processing message:', error);
             // Send error message if token is invalid
             await bot.sendMessage(chatId, messages.errorMessage);
         }
@@ -265,7 +266,7 @@ async function checkPendingTokens(bot) {
             }
         }
     } catch (error) {
-        console.error('Error checking pending tokens on startup:', error);
+        logger.error('Error checking pending tokens on startup:', error);
     }
 }
 
